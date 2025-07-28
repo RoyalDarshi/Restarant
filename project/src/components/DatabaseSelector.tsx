@@ -58,26 +58,28 @@ const DatabaseSelector: React.FC<DatabaseSelectorProps> = ({ onTableSelect, sele
         <div className="flex items-center justify-between">
           <div className="flex items-center space-x-3">
             <Database className="h-6 w-6 text-blue-600" />
-            <h2 className="text-xl font-semibold text-slate-900">Database Tables</h2>
+            <h2 className="text-xl font-semibold text-slate-900">
+              Database Tables
+            </h2>
           </div>
           <button
             onClick={fetchTables}
             disabled={loading}
             className="flex items-center space-x-2 px-3 py-2 text-slate-600 hover:text-slate-900 hover:bg-slate-100 rounded-lg transition-colors disabled:opacity-50"
           >
-            <RefreshCw className={`h-4 w-4 ${loading ? 'animate-spin' : ''}`} />
+            <RefreshCw className={`h-4 w-4 ${loading ? "animate-spin" : ""}`} />
             <span>Refresh</span>
           </button>
         </div>
       </div>
-      
-      <div className="p-6">
+
+      <div className="p-6 overflow-y-auto max-h-[calc(100vh-150px)]">
         {error && (
           <div className="mb-4 p-4 bg-red-50 border border-red-200 rounded-lg">
             <p className="text-red-800 text-sm">{error}</p>
           </div>
         )}
-        
+
         {loading ? (
           <div className="flex items-center justify-center py-8">
             <RefreshCw className="h-6 w-6 animate-spin text-slate-400" />
@@ -91,14 +93,16 @@ const DatabaseSelector: React.FC<DatabaseSelectorProps> = ({ onTableSelect, sele
                 onClick={() => handleTableSelect(tableName)}
                 className={`flex items-center space-x-3 p-4 border rounded-lg text-left transition-all hover:border-blue-300 hover:shadow-sm ${
                   selectedTable === tableName
-                    ? 'border-blue-500 bg-blue-50'
-                    : 'border-slate-200 bg-white'
+                    ? "border-blue-500 bg-blue-50"
+                    : "border-slate-200 bg-white"
                 }`}
               >
                 <Table className="h-5 w-5 text-slate-500" />
                 <div>
                   <div className="font-medium text-slate-900">{tableName}</div>
-                  <div className="text-sm text-slate-500">Click to load columns</div>
+                  <div className="text-sm text-slate-500">
+                    Click to load columns
+                  </div>
                 </div>
                 {selectedTable === tableName && (
                   <Columns className="h-4 w-4 text-blue-500 ml-auto" />

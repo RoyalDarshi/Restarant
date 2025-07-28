@@ -13,11 +13,15 @@ const DynamicColumnsPanel: React.FC<DynamicColumnsPanelProps> = ({ tableName, co
     return (
       <div className="bg-white rounded-xl shadow-sm border border-slate-200">
         <div className="p-6 border-b border-slate-200">
-          <h2 className="text-xl font-semibold text-slate-900">Available Columns</h2>
-          <p className="text-sm text-slate-600 mt-1">Select a table to view columns</p>
+          <h2 className="text-xl font-semibold text-slate-900">
+            Available Columns
+          </h2>
+          <p className="text-sm text-slate-600 mt-1">
+            Select a table to view columns
+          </p>
         </div>
-        
-        <div className="p-6">
+
+        <div className="p-6 overflow-y-auto max-h-[calc(100vh-150px)]">
           <div className="text-center py-8 text-slate-500">
             <Columns className="h-12 w-12 mx-auto mb-4 opacity-20" />
             <p>No table selected</p>
@@ -30,13 +34,16 @@ const DynamicColumnsPanel: React.FC<DynamicColumnsPanelProps> = ({ tableName, co
   return (
     <div className="bg-white rounded-xl shadow-sm border border-slate-200">
       <div className="p-6 border-b border-slate-200">
-        <h2 className="text-xl font-semibold text-slate-900">Available Columns</h2>
+        <h2 className="text-xl font-semibold text-slate-900">
+          Available Columns
+        </h2>
         <p className="text-sm text-slate-600 mt-1">
-          Drag columns from <span className="font-medium">{tableName}</span> to create charts
+          Drag columns from <span className="font-medium">{tableName}</span> to
+          create charts
         </p>
       </div>
-      
-      <div className="p-6">
+
+      <div className="p-6 overflow-y-auto max-h-[calc(100vh-150px)]">
         {columns.length > 0 ? (
           <div className="grid grid-cols-1 gap-3">
             {columns.map((column) => (
