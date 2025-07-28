@@ -15,17 +15,16 @@ const DatabaseSelector: React.FC<DatabaseSelectorProps> = ({ onTableSelect, sele
   const fetchTables = async () => {
     setLoading(true);
     setError(null);
-    
+
     try {
       const response = await apiService.getTables();
-      console.log('Fetched tables:', response);
-      if (response.success && response.data) {
+      if (response.success) {
         setTables(response.data);
       } else {
-        setError(response.error || 'Failed to fetch tables');
+        setError(response.error || "Failed to fetch tables");
       }
     } catch (err) {
-      setError('Failed to connect to database');
+      setError("Failed to connect to database");
     } finally {
       setLoading(false);
     }
@@ -34,13 +33,18 @@ const DatabaseSelector: React.FC<DatabaseSelectorProps> = ({ onTableSelect, sele
   const handleTableSelect = async (tableName: string) => {
     try {
       const response = await apiService.getTableColumns(tableName);
-      if (response.success && response.data) {
-        onTableSelect(tableName, response.data);
+      console.log(
+        "Fetched columns:",
+        response.data.tableName,
+        response.data.columns
+      );
+      if (response.data.success) {
+        onTableSelect(response.data.tableName, response.data.columns);
       } else {
-        setError(response.error || 'Failed to fetch table columns');
+        setError(response.error || "Failed to fetch table columns");
       }
     } catch (err) {
-      setError('Failed to fetch table columns');
+      setError("Failed to fetch table columns");
     }
   };
 

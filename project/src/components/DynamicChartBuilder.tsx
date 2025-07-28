@@ -38,11 +38,11 @@ const DynamicChartBuilder: React.FC<DynamicChartBuilderProps> = ({ tableName, co
       };
 
       const response = await apiService.getAggregatedData(request);
-      
-      if (response.success && response.data) {
+      console.log("Chart data response:", response);
+      if (response.success) {
         setChartData(response.data);
       } else {
-        setError(response.error || 'Failed to fetch chart data');
+        setError(response.error || "Failed to fetch chart data");
       }
     } catch (err) {
       setError('Failed to generate chart data');

@@ -23,26 +23,29 @@ const DynamicDataTable: React.FC<DynamicDataTableProps> = ({ tableName, columns 
     hasMore: false
   });
 
-  const fetchData = async (offset = 0, orderBy?: string, orderDirection?: 'ASC' | 'DESC') => {
+  const fetchData = async (
+    offset = 0,
+    orderBy?: string,
+    orderDirection?: "ASC" | "DESC"
+  ) => {
     setLoading(true);
     setError(null);
-    
+
     try {
       const response = await apiService.getTableData(tableName, {
         limit: pagination.limit,
         offset,
         orderBy,
-        orderDirection
+        orderDirection,
       });
-      
-      if (response.success && response.data) {
-        setData(response.data.data);
-        setPagination(response.data.pagination);
+      if (response.success) {
+        setData(response.data);
+        setPagination(response.pagination);
       } else {
-        setError(response.error || 'Failed to fetch data');
+        setError(response.error || "Failed to fetch data");
       }
     } catch (err) {
-      setError('Failed to fetch table data');
+      setError("Failed to fetch table data");
     } finally {
       setLoading(false);
     }
@@ -50,34 +53,39 @@ const DynamicDataTable: React.FC<DynamicDataTableProps> = ({ tableName, columns 
 
   const filteredData = useMemo(() => {
     if (!searchTerm) return data;
-    
-    return data.filter(item =>
-      Object.values(item).some(value =>
+
+    return data.filter((item) =>
+      Object.values(item).some((value) =>
         value?.toString().toLowerCase().includes(searchTerm.toLowerCase())
       )
     );
   }, [data, searchTerm]);
 
   const handleSort = (key: string) => {
-    const direction = sortConfig?.key === key && sortConfig.direction === 'asc' ? 'desc' : 'asc';
+    const direction =
+      sortConfig?.key === key && sortConfig.direction === "asc"
+        ? "desc"
+        : "asc";
     setSortConfig({ key, direction });
-    fetchData(0, key, direction.toUpperCase() as 'ASC' | 'DESC');
+    fetchData(0, key, direction.toUpperCase() as "ASC" | "DESC");
   };
 
   const getSortIcon = (key: string) => {
     if (sortConfig?.key !== key) return null;
-    return sortConfig.direction === 'asc' ? 
-      <ChevronUp className="h-4 w-4" /> : 
-      <ChevronDown className="h-4 w-4" />;
+    return sortConfig.direction === "asc" ? (
+      <ChevronUp className="h-4 w-4" />
+    ) : (
+      <ChevronDown className="h-4 w-4" />
+    );
   };
 
   const formatValue = (value: any, column: DatabaseColumn) => {
-    if (value === null || value === undefined) return '-';
-    
-    if (column.type === 'number') {
-      return typeof value === 'number' ? value.toLocaleString() : value;
+    if (value === null || value === undefined) return "-";
+
+    if (column.type === "number") {
+      return typeof value === "number" ? value.toLocaleString() : value;
     }
-    if (column.type === 'date') {
+    if (column.type === "date") {
       return new Date(value).toLocaleDateString();
     }
     return value.toString();
@@ -123,19 +131,21 @@ const DynamicDataTable: React.FC<DynamicDataTableProps> = ({ tableName, columns 
               disabled={loading}
               className="flex items-center space-x-2 px-3 py-2 text-slate-600 hover:text-slate-900 hover:bg-slate-100 rounded-lg transition-colors disabled:opacity-50"
             >
-              <RefreshCw className={`h-4 w-4 ${loading ? 'animate-spin' : ''}`} />
+              <RefreshCw
+                className={`h-4 w-4 ${loading ? "animate-spin" : ""}`}
+              />
               <span>Refresh</span>
             </button>
           </div>
         </div>
       </div>
-      
+
       {error && (
         <div className="mx-6 mt-4 p-4 bg-red-50 border border-red-200 rounded-lg">
           <p className="text-red-800 text-sm">{error}</p>
         </div>
       )}
-      
+
       <div className="overflow-x-auto">
         <table className="w-full">
           <thead className="bg-slate-50">
@@ -148,7 +158,9 @@ const DynamicDataTable: React.FC<DynamicDataTableProps> = ({ tableName, columns 
                 >
                   <div className="flex items-center space-x-1">
                     <span>{column.label}</span>
-                    <span className="text-xs text-slate-400">({column.type})</span>
+                    <span className="text-xs text-slate-400">
+                      ({column.type})
+                    </span>
                     {getSortIcon(column.key)}
                   </div>
                 </th>
@@ -167,7 +179,10 @@ const DynamicDataTable: React.FC<DynamicDataTableProps> = ({ tableName, columns 
               filteredData.map((row, index) => (
                 <tr key={index} className="hover:bg-slate-50 transition-colors">
                   {columns.map((column) => (
-                    <td key={column.key} className="px-6 py-4 whitespace-nowrap text-sm text-slate-900">
+                    <td
+                      key={column.key}
+                      className="px-6 py-4 whitespace-nowrap text-sm text-slate-900"
+                    >
                       {formatValue(row[column.key], column)}
                     </td>
                   ))}
@@ -175,7 +190,10 @@ const DynamicDataTable: React.FC<DynamicDataTableProps> = ({ tableName, columns 
               ))
             ) : (
               <tr>
-                <td colSpan={columns.length} className="px-6 py-8 text-center text-slate-500">
+                <td
+                  colSpan={columns.length}
+                  className="px-6 py-8 text-center text-slate-500"
+                >
                   No data found
                 </td>
               </tr>
@@ -183,7 +201,7 @@ const DynamicDataTable: React.FC<DynamicDataTableProps> = ({ tableName, columns 
           </tbody>
         </table>
       </div>
-      
+
       <div className="px-6 py-3 bg-slate-50 border-t border-slate-200">
         <p className="text-sm text-slate-700">
           Showing {filteredData.length} of {pagination.total} records

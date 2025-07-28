@@ -73,10 +73,10 @@ class ApiService {
   // Get all tables
   async getTables(): Promise<ApiResponse<string[]>> {
     const response = await this.fetchApi<{ tables: string[] }>('/database/tables');
-    if (response.success && response.data) {
+    if (response.success) {
       return {
         success: true,
-        data: response.data.tables
+        data: response.tables,
       };
     }
     return response as ApiResponse<string[]>;
@@ -85,10 +85,9 @@ class ApiService {
   // Get columns for a specific table
   async getTableColumns(tableName: string): Promise<ApiResponse<DatabaseColumn[]>> {
     const response = await this.fetchApi<{ columns: DatabaseColumn[] }>(`/database/tables/${tableName}/columns`);
-    if (response.success && response.data) {
+    if (response.success) {
       return {
-        success: true,
-        data: response.data.columns
+        data: response,
       };
     }
     return response as ApiResponse<DatabaseColumn[]>;
@@ -122,11 +121,11 @@ class ApiService {
       method: 'POST',
       body: JSON.stringify(request),
     });
-    
+    console.log("Aggregated data response:", response);
     if (response.success && response.data) {
       return {
         success: true,
-        data: response.data.data
+        data: response.data,
       };
     }
     return response as ApiResponse<any[]>;
