@@ -310,9 +310,9 @@ const DynamicChartBuilder: React.FC<DynamicChartBuilderProps> = ({ tableName, co
       </div>
 
       <div className="p-4 sm:p-6">
-        <div className="grid grid-cols-1 lg:grid-cols-3 gap-6 mb-6">
+        <div className="grid grid-cols-1 lg:grid-cols-3 gap-2">
           <div>
-            <label className="block text-sm font-medium text-slate-700 mb-2">
+            <label className="block text-sm font-medium text-slate-700 ">
               X-Axis (Categories)
             </label>
             <ChartDropZone
@@ -351,7 +351,7 @@ const DynamicChartBuilder: React.FC<DynamicChartBuilderProps> = ({ tableName, co
         </div>
 
         <div className="flex gap-4">
-          <div className=''>
+          <div className="">
             <label className="block text-sm font-medium text-slate-700 mb-3">
               Chart Type
             </label>
@@ -394,7 +394,7 @@ const DynamicChartBuilder: React.FC<DynamicChartBuilderProps> = ({ tableName, co
         </div>
 
         <div className="bg-slate-50 rounded-lg p-6">
-          {(xAxisColumn || yAxisColumns.length > 0 || groupByColumn) && (
+          {/* {(xAxisColumn || yAxisColumns.length > 0 || groupByColumn) && (
             <div className="mb-4 p-3 bg-blue-50 rounded-lg border border-blue-200">
               <h4 className="font-medium text-blue-900 mb-2">
                 Chart Configuration:
@@ -410,7 +410,7 @@ const DynamicChartBuilder: React.FC<DynamicChartBuilderProps> = ({ tableName, co
                 {groupByColumn && <p>• Grouped by: {groupByColumn.label}</p>}
               </div>
             </div>
-          )}
+          )} */}
           {renderChart()}
         </div>
       </div>

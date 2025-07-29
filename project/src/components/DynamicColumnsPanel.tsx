@@ -43,15 +43,15 @@ const DynamicColumnsPanel: React.FC<DynamicColumnsPanelProps> = ({ tableName, co
         </p>
       </div>
 
-      <div className="p-6 overflow-y-auto max-h-[calc(100vh-150px)]">
+      <div className=" overflow-y-auto max-h-[calc(100vh-150px)]">
         {columns.length > 0 ? (
-          <div className="grid grid-cols-1 gap-3">
+          <div className=" gap-1">
             {columns.map((column) => (
               <DraggableColumn key={column.key} column={column} />
             ))}
           </div>
         ) : (
-          <div className="text-center py-8 text-slate-500">
+          <div className="text-center py-2 text-slate-500">
             <Columns className="h-12 w-12 mx-auto mb-4 opacity-20" />
             <p>No columns available</p>
           </div>

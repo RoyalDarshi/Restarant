@@ -21,13 +21,13 @@ function App() {
     switch (activeTab) {
       case 'data':
         return (
-          <div className="space-y-8">
-            <DatabaseSelector 
+          <div className="space-y-2">
+            <DatabaseSelector
               onTableSelect={handleTableSelect}
               selectedTable={selectedTable}
             />
             {selectedTable && (
-              <DynamicDataTable 
+              <DynamicDataTable
                 tableName={selectedTable}
                 columns={tableColumns}
               />
@@ -38,16 +38,16 @@ function App() {
       case 'charts':
         return (
           <DragDropProvider>
-            <div className="grid grid-cols-1 xl:grid-cols-4 gap-8">
+            <div className="grid grid-cols-1 xl:grid-cols-6">
               <div className="xl:col-span-1">
-                <DynamicColumnsPanel 
+                <DynamicColumnsPanel
                   tableName={selectedTable}
                   columns={tableColumns}
                 />
               </div>
-              <div className="xl:col-span-3">
-                <DynamicChartBuilder 
-                  tableName={selectedTable || ''}
+              <div className="xl:col-span-5">
+                <DynamicChartBuilder
+                  tableName={selectedTable || ""}
                   columns={tableColumns}
                 />
               </div>
