@@ -1,4 +1,4 @@
-import React, { useState } from "react";
+import React, { useState, useEffect } from "react";
 import Sidebar from "./components/Sidebar";
 import DynamicDataTable from "./components/DynamicDataTable";
 import DynamicChartBuilder from "./components/DynamicChartBuilder";
@@ -6,15 +6,40 @@ import DynamicColumnsPanel from "./components/DynamicColumnsPanel";
 import DatabaseSelector from "./components/DatabaseSelector";
 import DragDropProvider from "./components/DragDropProvider";
 import { DatabaseColumn } from "./services/api";
+import { apiService } from "./services/api"; // Make sure this path is correct
 
 function App() {
   const [activeTab, setActiveTab] = useState("data");
   const [selectedTable, setSelectedTable] = useState<string | null>(null);
   const [tableColumns, setTableColumns] = useState<DatabaseColumn[]>([]);
+  const [tables, setTables] = useState<string[]>([]);
 
-  const handleTableSelect = (tableName: string, columns: DatabaseColumn[]) => {
-    setSelectedTable(tableName);
-    setTableColumns(columns);
+  useEffect(() => {
+    const fetchTables = async () => {
+      try {
+        const response = await apiService.getTables();
+        if (response.success) {
+          setTables(response.data);
+        }
+      } catch (err) {
+        console.error("Failed to fetch tables", err);
+      }
+    };
+    fetchTables();
+  }, []);
+
+  const handleTableSelect = async (tableName: string) => {
+    try {
+      const response = await apiService.getTableColumns(tableName);
+      if (response.data.success) {
+        setSelectedTable(tableName);
+        setTableColumns(response.data.columns);
+      } else {
+        console.error("Failed to get columns", response.error);
+      }
+    } catch (err) {
+      console.error("Failed to fetch columns", err);
+    }
   };
 
   const renderContent = () => {
@@ -22,19 +47,13 @@ function App() {
       case "data":
         return (
           <div className="grid grid-cols-8 gap-2">
-            {" "}
-            {/* Changed to grid layout */}
             <div className="col-span-2">
-              {" "}
-              {/* DatabaseSelector takes 2 columns */}
               <DatabaseSelector
                 onTableSelect={handleTableSelect}
                 selectedTable={selectedTable}
               />
             </div>
             <div className="col-span-6">
-              {" "}
-              {/* DynamicDataTable takes 4 columns */}
               {selectedTable && (
                 <DynamicDataTable
                   tableName={selectedTable}
@@ -53,6 +72,8 @@ function App() {
                 <DynamicColumnsPanel
                   tableName={selectedTable}
                   columns={tableColumns}
+                  tables={tables}
+                  onTableChange={handleTableSelect}
                 />
               </div>
               <div className="xl:col-span-5">
@@ -97,19 +118,12 @@ function App() {
       <Sidebar activeTab={activeTab} onTabChange={setActiveTab} />
 
       <main className="flex-1 overflow-auto">
-        {" "}
-        {/* Added padding here */}
         <div className="">
-          {" "}
-          {/* Added margin-bottom */}
           <h1 className="text-3xl font-bold text-slate-900">
-            {/* {activeTab === "data" && "Database Explorer"} */}
             {activeTab === "trends" && "Trends Analysis"}
             {activeTab === "settings" && "Settings"}
           </h1>
           <p className="text-slate-600 mt-2">
-            {/* {activeTab === "data" &&
-              "Connect to your PostgreSQL database and explore tables"} */}
             {activeTab === "trends" &&
               "Discover patterns and forecast future trends"}
             {activeTab === "settings" && "Configure your dashboard preferences"}
