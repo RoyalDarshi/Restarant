@@ -109,8 +109,8 @@ const DynamicDataTable: React.FC<DynamicDataTableProps> = ({ tableName, columns 
   }
 
   return (
-    <div className="bg-white rounded-xl shadow-sm border border-slate-200">
-      <div className="p-6 border-b border-slate-200">
+    <div className="bg-white rounded-xl shadow-sm border border-slate-200 max-h-[calc(100vh-20px)] overflow-scroll">
+      <div className="p-2 border-b border-slate-200">
         <div className="flex items-center justify-between">
           <h2 className="text-xl font-semibold text-slate-900">
             {tableName} ({pagination.total} records)

@@ -54,7 +54,7 @@ const DatabaseSelector: React.FC<DatabaseSelectorProps> = ({ onTableSelect, sele
 
   return (
     <div className="bg-white rounded-xl shadow-sm border border-slate-200">
-      <div className="p-6 border-b border-slate-200">
+      <div className="p-2 border-b border-slate-200">
         <div className="flex items-center justify-between">
           <div className="flex items-center space-x-3">
             <Database className="h-6 w-6 text-blue-600" />
@@ -73,7 +73,7 @@ const DatabaseSelector: React.FC<DatabaseSelectorProps> = ({ onTableSelect, sele
         </div>
       </div>
 
-      <div className="p-6 overflow-y-auto max-h-[calc(100vh-150px)]">
+      <div className="p-2 overflow-y-auto max-h-[calc(100vh-150px)]">
         {error && (
           <div className="mb-4 p-4 bg-red-50 border border-red-200 rounded-lg">
             <p className="text-red-800 text-sm">{error}</p>
@@ -86,12 +86,12 @@ const DatabaseSelector: React.FC<DatabaseSelectorProps> = ({ onTableSelect, sele
             <span className="ml-2 text-slate-600">Loading tables...</span>
           </div>
         ) : tables.length > 0 ? (
-          <div className="grid grid-cols-1 gap-3">
+          <div className="grid grid-cols-1 gap-2">
             {tables.map((tableName) => (
               <button
                 key={tableName}
                 onClick={() => handleTableSelect(tableName)}
-                className={`flex items-center space-x-3 p-4 border rounded-lg text-left transition-all hover:border-blue-300 hover:shadow-sm ${
+                className={`flex items-center space-x-2 p-2 border rounded-lg text-left transition-all hover:border-blue-300 hover:shadow-sm ${
                   selectedTable === tableName
                     ? "border-blue-500 bg-blue-50"
                     : "border-slate-200 bg-white"

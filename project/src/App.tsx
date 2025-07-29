@@ -21,10 +21,10 @@ function App() {
     switch (activeTab) {
       case "data":
         return (
-          <div className="grid grid-cols-1 xl:grid-cols-6 gap-4">
+          <div className="grid grid-cols-8 gap-2">
             {" "}
             {/* Changed to grid layout */}
-            <div className="xl:col-span-2">
+            <div className="col-span-2">
               {" "}
               {/* DatabaseSelector takes 2 columns */}
               <DatabaseSelector
@@ -32,7 +32,7 @@ function App() {
                 selectedTable={selectedTable}
               />
             </div>
-            <div className="xl:col-span-4">
+            <div className="col-span-6">
               {" "}
               {/* DynamicDataTable takes 4 columns */}
               {selectedTable && (
@@ -103,13 +103,13 @@ function App() {
           {" "}
           {/* Added margin-bottom */}
           <h1 className="text-3xl font-bold text-slate-900">
-            {activeTab === "data" && "Database Explorer"}
+            {/* {activeTab === "data" && "Database Explorer"} */}
             {activeTab === "trends" && "Trends Analysis"}
             {activeTab === "settings" && "Settings"}
           </h1>
           <p className="text-slate-600 mt-2">
-            {activeTab === "data" &&
-              "Connect to your PostgreSQL database and explore tables"}
+            {/* {activeTab === "data" &&
+              "Connect to your PostgreSQL database and explore tables"} */}
             {activeTab === "trends" &&
               "Discover patterns and forecast future trends"}
             {activeTab === "settings" && "Configure your dashboard preferences"}
