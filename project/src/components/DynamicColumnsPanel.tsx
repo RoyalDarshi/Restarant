@@ -12,7 +12,7 @@ const DynamicColumnsPanel: React.FC<DynamicColumnsPanelProps> = ({ tableName, co
   if (!tableName) {
     return (
       <div className="bg-white rounded-xl shadow-sm border border-slate-200">
-        <div className="p-6 border-b border-slate-200">
+        <div className="p-4 border-b border-slate-200">
           <h2 className="text-xl font-semibold text-slate-900">
             Available Columns
           </h2>
@@ -33,7 +33,7 @@ const DynamicColumnsPanel: React.FC<DynamicColumnsPanelProps> = ({ tableName, co
 
   return (
     <div className="bg-white rounded-xl shadow-sm border border-slate-200">
-      <div className="p-6 border-b border-slate-200">
+      <div className="p-2 border-b border-slate-200">
         <h2 className="text-xl font-semibold text-slate-900">
           Available Columns
         </h2>

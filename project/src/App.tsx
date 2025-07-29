@@ -79,24 +79,25 @@ function App() {
   return (
     <div className="flex h-screen bg-slate-100">
       <Sidebar activeTab={activeTab} onTabChange={setActiveTab} />
-      
+
       <main className="flex-1 overflow-auto">
-        <div className="p-8">
-          <div className="mb-8">
+        <div className="">
+          <div className="">
             <h1 className="text-3xl font-bold text-slate-900">
-              {activeTab === 'data' && 'Database Explorer'}
-              {activeTab === 'charts' && 'Analytics Dashboard'}
-              {activeTab === 'trends' && 'Trends Analysis'}
-              {activeTab === 'settings' && 'Settings'}
+              {activeTab === "data" && "Database Explorer"}
+              {activeTab === "trends" && "Trends Analysis"}
+              {activeTab === "settings" && "Settings"}
             </h1>
             <p className="text-slate-600 mt-2">
-              {activeTab === 'data' && 'Connect to your PostgreSQL database and explore tables'}
-              {activeTab === 'charts' && 'Create interactive charts from your database tables'}
-              {activeTab === 'trends' && 'Discover patterns and forecast future trends'}
-              {activeTab === 'settings' && 'Configure your dashboard preferences'}
+              {activeTab === "data" &&
+                "Connect to your PostgreSQL database and explore tables"}
+              {activeTab === "trends" &&
+                "Discover patterns and forecast future trends"}
+              {activeTab === "settings" &&
+                "Configure your dashboard preferences"}
             </p>
           </div>
-          
+
           {renderContent()}
         </div>
       </main>
