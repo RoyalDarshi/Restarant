@@ -96,10 +96,10 @@ function App() {
     <div className="flex h-screen bg-slate-100">
       <Sidebar activeTab={activeTab} onTabChange={setActiveTab} />
 
-      <main className="flex-1 overflow-auto p-8">
+      <main className="flex-1 overflow-auto">
         {" "}
         {/* Added padding here */}
-        <div className="mb-6">
+        <div className="">
           {" "}
           {/* Added margin-bottom */}
           <h1 className="text-3xl font-bold text-slate-900">
