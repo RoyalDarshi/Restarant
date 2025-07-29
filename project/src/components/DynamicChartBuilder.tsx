@@ -294,10 +294,12 @@ const DynamicChartBuilder: React.FC<DynamicChartBuilderProps> = ({ tableName, co
 
   return (
     <div className="bg-white rounded-xl shadow-sm border border-slate-200">
-      <div className="p-3 border-b border-slate-200">
+      <div className="border-b border-slate-200">
+        {" "}
+        {/* Changed p-3 to px-3 pt-3 */}
         <div className="flex items-center justify-between">
-          <h2 className="text-xl font-semibold text-slate-900">
-            Chart Builder - {tableName}
+          <h2 className="text-lg font-semibold text-slate-900">
+            Chart Builder - <span className="text-blue-600">{tableName}</span>
           </h2>
           <button
             onClick={handleReset}
@@ -309,8 +311,8 @@ const DynamicChartBuilder: React.FC<DynamicChartBuilderProps> = ({ tableName, co
         </div>
       </div>
 
-      <div className="p-4 sm:p-6">
-        <div className="grid grid-cols-1 lg:grid-cols-3 gap-2">
+      <div className="p-4 sm:p-6 pb-2">
+        <div className="grid grid-cols-1 lg:grid-cols-3 gap-2 mb-4">
           <div>
             <label className="block text-sm font-medium text-slate-700 ">
               X-Axis (Categories)
@@ -350,7 +352,7 @@ const DynamicChartBuilder: React.FC<DynamicChartBuilderProps> = ({ tableName, co
           </div>
         </div>
 
-        <div className="flex gap-4">
+        <div className="flex gap-4 mb-4">
           <div className="">
             <label className="block text-sm font-medium text-slate-700 mb-3">
               Chart Type
@@ -393,24 +395,7 @@ const DynamicChartBuilder: React.FC<DynamicChartBuilderProps> = ({ tableName, co
           </div>
         </div>
 
-        <div className="bg-slate-50 rounded-lg p-6">
-          {/* {(xAxisColumn || yAxisColumns.length > 0 || groupByColumn) && (
-            <div className="mb-4 p-3 bg-blue-50 rounded-lg border border-blue-200">
-              <h4 className="font-medium text-blue-900 mb-2">
-                Chart Configuration:
-              </h4>
-              <div className="text-sm text-blue-800 space-y-1">
-                {xAxisColumn && <p>• X-Axis: {xAxisColumn.label}</p>}
-                {yAxisColumns.length > 0 && (
-                  <p>
-                    • Y-Axis: {yAxisColumns.map((col) => col.label).join(", ")}{" "}
-                    ({aggregationType})
-                  </p>
-                )}
-                {groupByColumn && <p>• Grouped by: {groupByColumn.label}</p>}
-              </div>
-            </div>
-          )} */}
+        <div className="bg-slate-50 rounded-lg p-6 pt-4 pb-4">
           {renderChart()}
         </div>
       </div>

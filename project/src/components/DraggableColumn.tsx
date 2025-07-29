@@ -19,7 +19,7 @@ const DraggableColumn: React.FC<DraggableColumnProps> = ({ column }) => {
   return (
     <div
       ref={drag}
-      className={`flex items-center space-x-2 p-2 bg-white border border-slate-200 rounded-lg cursor-move hover:border-blue-300 hover:shadow-sm transition-all ${
+      className={`flex mb-2 items-center space-x-2 p-2 bg-white border border-slate-200 rounded-lg cursor-move hover:border-blue-300 hover:shadow-sm transition-all ${
         isDragging ? "opacity-50" : ""
       }`}
     >
