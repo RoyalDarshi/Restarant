@@ -1,74 +1,154 @@
 import React, { useState, useEffect } from 'react';
-import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, Legend, LineChart, Line, PieChart, Pie, Cell, AreaChart, Area, ResponsiveContainer, ComposedChart } from 'recharts';
+import {
+  BarChart,
+  Bar,
+  XAxis,
+  YAxis,
+  CartesianGrid,
+  Tooltip,
+  Legend,
+  LineChart,
+  Line,
+  PieChart,
+  Pie,
+  Cell,
+  AreaChart,
+  Area,
+  ResponsiveContainer,
+  ComposedChart,
+} from "recharts";
 import { DatabaseColumn, apiService, AggregationRequest } from '../services/api';
 import ChartDropZone from './ChartDropZone';
-import { BarChart3, LineChart as LineChartIcon, PieChart as PieChartIcon, Activity, RefreshCw, Layers } from 'lucide-react';
+import {
+  BarChart3,
+  LineChart as LineChartIcon,
+  PieChart as PieChartIcon,
+  Activity,
+  RefreshCw,
+  Layers,
+} from "lucide-react";
 
 interface DynamicChartBuilderProps {
   tableName: string;
   columns: DatabaseColumn[];
 }
 
-const DynamicChartBuilder: React.FC<DynamicChartBuilderProps> = ({ tableName, columns }) => {
+const DynamicChartBuilder: React.FC<DynamicChartBuilderProps> = ({
+  tableName,
+  columns,
+}) => {
   const [xAxisColumn, setXAxisColumn] = useState<DatabaseColumn | null>(null);
   const [yAxisColumns, setYAxisColumns] = useState<DatabaseColumn[]>([]);
-  const [groupByColumn, setGroupByColumn] = useState<DatabaseColumn | null>(null);
-  const [chartType, setChartType] = useState<'bar' | 'line' | 'pie' | 'area' | 'composed'>('bar');
-  const [aggregationType, setAggregationType] = useState<'SUM' | 'AVG' | 'COUNT' | 'MIN' | 'MAX'>('SUM');
+  const [groupByColumn, setGroupByColumn] = useState<DatabaseColumn | null>(
+    null
+  );
+  const [chartType, setChartType] = useState<
+    "bar" | "line" | "pie" | "area" | "composed"
+  >("bar");
+  const [aggregationType, setAggregationType] = useState<
+    "SUM" | "AVG" | "COUNT" | "MIN" | "MAX"
+  >("SUM");
   const [chartData, setChartData] = useState<any[]>([]);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
-  const fetchChartData = async () => {
+  // Normalize column type to simplify type checking for aggregation logic
+  const normalizeType = (type: string): "string" | "number" => {
+    const lower = type.toLowerCase();
+    if (lower.includes("char") || lower === "text") return "string";
+    if (
+      lower.includes("int") ||
+      lower === "float" ||
+      lower === "double" ||
+      lower === "decimal" ||
+      lower === "number"
+    )
+      return "number";
+    return "string"; // fallback for unknown types
+  };
+
+  // This useEffect now handles both determining the correct aggregation type
+  // and fetching the chart data, ensuring consistency.
+  useEffect(() => {
     if (!tableName || !xAxisColumn || yAxisColumns.length === 0) {
       setChartData([]);
+      // Reset aggregation type if no valid columns are selected
+      if (aggregationType !== "SUM") {
+        setAggregationType("SUM");
+      }
       return;
     }
 
+    // Determine the *expected* aggregation type based on current column types
+    let expectedAggregationType = aggregationType;
+    const anyYIsString = yAxisColumns.some(col => normalizeType(col.type) === "string");
+
+    if (anyYIsString) {
+      expectedAggregationType = "COUNT";
+    } else {
+      // If no string Y-axis, and current aggregation is COUNT, revert to SUM
+      if (aggregationType === "COUNT") {
+        expectedAggregationType = "SUM";
+      }
+    }
+
+    // If the current aggregationType state doesn't match the expected,
+    // update the state and return. This will cause the effect to re-run
+    // with the correct aggregationType in its dependencies.
+    if (expectedAggregationType !== aggregationType) {
+      setAggregationType(expectedAggregationType);
+      return; // Exit and let the effect re-run with the updated aggregationType
+    }
+
+    // If we reach here, aggregationType state is consistent with column types, proceed to fetch.
     setLoading(true);
     setError(null);
 
-    try {
-      const request: AggregationRequest = {
-        tableName,
-        xAxis: xAxisColumn.key,
-        yAxes: yAxisColumns.map(col => col.key),
-        groupBy: groupByColumn?.key,
-        aggregationType
-      };
+    const request: AggregationRequest = {
+      tableName,
+      xAxis: xAxisColumn.key,
+      yAxes: yAxisColumns.map((col) => col.key),
+      groupBy: groupByColumn?.key,
+      aggregationType, // Use the now-consistent state value
+    };
 
-      const response = await apiService.getAggregatedData(request);
-      console.log("Chart data response:", response);
-      if (response.success) {
-        setChartData(response.data);
-      } else {
-        setError(response.error || "Failed to fetch chart data");
-      }
-    } catch (err) {
-      setError('Failed to generate chart data');
-    } finally {
-      setLoading(false);
-    }
-  };
+    apiService.getAggregatedData(request)
+      .then(response => {
+        console.log("Chart data response:", response);
+        if (response.success) {
+          setChartData(response.data);
+        } else {
+          setError(response.error || "Failed to fetch chart data");
+        }
+      })
+      .catch(err => {
+        setError("Failed to generate chart data");
+      })
+      .finally(() => {
+        setLoading(false);
+      });
 
-  const handleDrop = (column: DatabaseColumn, axis: 'x' | 'y' | 'group') => {
-    if (axis === 'x') {
+  }, [tableName, xAxisColumn, yAxisColumns, groupByColumn, aggregationType]); // aggregationType is still a dependency for user-driven changes
+
+
+  const handleDrop = (column: DatabaseColumn, axis: "x" | "y" | "group") => {
+    if (axis === "x") {
       setXAxisColumn(column);
-    } else if (axis === 'y') {
-      if (!yAxisColumns.find(col => col.key === column.key)) {
-        setYAxisColumns(prev => [...prev, column]);
+    } else if (axis === "y") {
+      if (!yAxisColumns.find((col) => col.key === column.key)) {
+        setYAxisColumns((prev) => [...prev, column]);
       }
-    } else if (axis === 'group') {
+    } else if (axis === "group") {
       setGroupByColumn(column);
     }
   };
 
-  const handleRemove = (column: DatabaseColumn, axis: 'x' | 'y' | 'group') => {
-    if (axis === 'x') {
+  const handleRemove = (column: DatabaseColumn, axis: "x" | "y" | "group") => {
+    if (axis === "x") {
       setXAxisColumn(null);
-    } else if (axis === 'y') {
-      setYAxisColumns(prev => prev.filter(col => col.key !== column.key));
-    } else if (axis === 'group') {
+    } else if (axis === "y") {
+      setYAxisColumns((prev) => prev.filter((col) => col.key !== column.key));
+    } else if (axis === "group") {
       setGroupByColumn(null);
     }
   };
@@ -79,13 +159,19 @@ const DynamicChartBuilder: React.FC<DynamicChartBuilderProps> = ({ tableName, co
     setGroupByColumn(null);
     setChartData([]);
     setError(null);
+    setAggregationType("SUM"); // Reset aggregation type on full reset
   };
 
-  useEffect(() => {
-    fetchChartData();
-  }, [tableName, xAxisColumn, yAxisColumns, groupByColumn, aggregationType]);
-
-  const COLORS = ['#3B82F6', '#EF4444', '#10B981', '#F59E0B', '#8B5CF6', '#EC4899', '#06B6D4', '#84CC16'];
+  const COLORS = [
+    "#3B82F6",
+    "#EF4444",
+    "#10B981",
+    "#F59E0B",
+    "#8B5CF6",
+    "#EC4899",
+    "#06B6D4",
+    "#84CC16",
+  ];
 
   const renderChart = () => {
     if (loading) {
@@ -114,21 +200,23 @@ const DynamicChartBuilder: React.FC<DynamicChartBuilderProps> = ({ tableName, co
           <div className="text-center">
             <BarChart3 className="h-16 w-16 mx-auto mb-4 opacity-20" />
             <p>Configure chart settings above to generate visualization</p>
-            <p className="text-sm mt-2">Select X-axis and Y-axis columns from your database</p>
+            <p className="text-sm mt-2">
+              Select X-axis and Y-axis columns from your database
+            </p>
           </div>
         </div>
       );
     }
 
     const commonProps = {
-      width: 800,
+      width: 800, // Recharts ResponsiveContainer handles width, but these are fallback/initial
       height: 400,
       data: chartData,
-      margin: { top: 20, right: 30, left: 20, bottom: 5 }
+      margin: { top: 20, right: 30, left: 20, bottom: 5 },
     };
 
     switch (chartType) {
-      case 'bar':
+      case "bar":
         return (
           <ResponsiveContainer width="100%" height={400}>
             <BarChart {...commonProps}>
@@ -138,9 +226,9 @@ const DynamicChartBuilder: React.FC<DynamicChartBuilderProps> = ({ tableName, co
               <Tooltip />
               <Legend />
               {yAxisColumns.map((column, index) => (
-                <Bar 
-                  key={column.key} 
-                  dataKey={column.key} 
+                <Bar
+                  key={column.key}
+                  dataKey={column.key}
                   fill={COLORS[index % COLORS.length]}
                   name={column.label}
                 />
@@ -148,8 +236,8 @@ const DynamicChartBuilder: React.FC<DynamicChartBuilderProps> = ({ tableName, co
             </BarChart>
           </ResponsiveContainer>
         );
-      
-      case 'line':
+
+      case "line":
         return (
           <ResponsiveContainer width="100%" height={400}>
             <LineChart {...commonProps}>
@@ -159,11 +247,11 @@ const DynamicChartBuilder: React.FC<DynamicChartBuilderProps> = ({ tableName, co
               <Tooltip />
               <Legend />
               {yAxisColumns.map((column, index) => (
-                <Line 
+                <Line
                   key={column.key}
-                  type="monotone" 
-                  dataKey={column.key} 
-                  stroke={COLORS[index % COLORS.length]} 
+                  type="monotone"
+                  dataKey={column.key}
+                  stroke={COLORS[index % COLORS.length]}
                   strokeWidth={2}
                   name={column.label}
                 />
@@ -171,8 +259,8 @@ const DynamicChartBuilder: React.FC<DynamicChartBuilderProps> = ({ tableName, co
             </LineChart>
           </ResponsiveContainer>
         );
-      
-      case 'area':
+
+      case "area":
         return (
           <ResponsiveContainer width="100%" height={400}>
             <AreaChart {...commonProps}>
@@ -182,12 +270,12 @@ const DynamicChartBuilder: React.FC<DynamicChartBuilderProps> = ({ tableName, co
               <Tooltip />
               <Legend />
               {yAxisColumns.map((column, index) => (
-                <Area 
+                <Area
                   key={column.key}
-                  type="monotone" 
-                  dataKey={column.key} 
-                  stroke={COLORS[index % COLORS.length]} 
-                  fill={COLORS[index % COLORS.length]} 
+                  type="monotone"
+                  dataKey={column.key}
+                  stroke={COLORS[index % COLORS.length]}
+                  fill={COLORS[index % COLORS.length]}
                   fillOpacity={0.3}
                   name={column.label}
                 />
@@ -195,8 +283,8 @@ const DynamicChartBuilder: React.FC<DynamicChartBuilderProps> = ({ tableName, co
             </AreaChart>
           </ResponsiveContainer>
         );
-      
-      case 'composed':
+
+      case "composed":
         return (
           <ResponsiveContainer width="100%" height={400}>
             <ComposedChart {...commonProps}>
@@ -205,39 +293,36 @@ const DynamicChartBuilder: React.FC<DynamicChartBuilderProps> = ({ tableName, co
               <YAxis />
               <Tooltip />
               <Legend />
-              {yAxisColumns.map((column, index) => {
-                if (index % 2 === 0) {
-                  return (
-                    <Bar 
-                      key={column.key} 
-                      dataKey={column.key} 
-                      fill={COLORS[index % COLORS.length]}
-                      name={column.label}
-                    />
-                  );
-                } else {
-                  return (
-                    <Line 
-                      key={column.key}
-                      type="monotone" 
-                      dataKey={column.key} 
-                      stroke={COLORS[index % COLORS.length]} 
-                      strokeWidth={2}
-                      name={column.label}
-                    />
-                  );
-                }
-              })}
+              {yAxisColumns.map((column, index) =>
+                index % 2 === 0 ? ( // Alternate between Bar and Line for demonstration
+                  <Bar
+                    key={column.key}
+                    dataKey={column.key}
+                    fill={COLORS[index % COLORS.length]}
+                    name={column.label}
+                  />
+                ) : (
+                  <Line
+                    key={column.key}
+                    type="monotone"
+                    dataKey={column.key}
+                    stroke={COLORS[index % COLORS.length]}
+                    strokeWidth={2}
+                    name={column.label}
+                  />
+                )
+              )}
             </ComposedChart>
           </ResponsiveContainer>
         );
-      
-      case 'pie':
-        const pieData = chartData.map(item => ({
+
+      case "pie":
+        // For pie charts, we typically use only the first Y-axis column for values
+        const pieData = chartData.map((item) => ({
           name: item.name,
-          value: item[yAxisColumns[0]?.key] || 0
+          value: item[yAxisColumns[0]?.key] || 0,
         }));
-        
+
         return (
           <ResponsiveContainer width="100%" height={400}>
             <PieChart>
@@ -246,39 +331,48 @@ const DynamicChartBuilder: React.FC<DynamicChartBuilderProps> = ({ tableName, co
                 cx="50%"
                 cy="50%"
                 labelLine={false}
-                label={({ name, percent }) => `${name} ${(percent * 100).toFixed(0)}%`}
+                label={({ name, percent }) =>
+                  `${name} ${(percent * 100).toFixed(0)}%`
+                }
                 outerRadius={120}
                 fill="#8884d8"
                 dataKey="value"
               >
                 {pieData.map((entry, index) => (
-                  <Cell key={`cell-${index}`} fill={COLORS[index % COLORS.length]} />
+                  <Cell
+                    key={`cell-${index}`}
+                    fill={COLORS[index % COLORS.length]}
+                  />
                 ))}
               </Pie>
               <Tooltip />
+              <Legend /> {/* Add Legend for Pie Chart */}
             </PieChart>
           </ResponsiveContainer>
         );
-      
+
       default:
         return null;
     }
   };
 
   const chartTypes = [
-    { type: 'bar' as const, icon: BarChart3, label: 'Bar Chart' },
-    { type: 'line' as const, icon: LineChartIcon, label: 'Line Chart' },
-    { type: 'area' as const, icon: Activity, label: 'Area Chart' },
-    { type: 'composed' as const, icon: Layers, label: 'Mixed Chart' },
-    { type: 'pie' as const, icon: PieChartIcon, label: 'Pie Chart' },
+    { type: "bar" as const, icon: BarChart3, label: "Bar Chart" },
+    { type: "line" as const, icon: LineChartIcon, label: "Line Chart" },
+    { type: "area" as const, icon: Activity, label: "Area Chart" },
+    { type: "composed" as const, icon: Layers, label: "Mixed Chart" },
+    { type: "pie" as const, icon: PieChartIcon, label: "Pie Chart" },
   ];
 
-  const aggregationTypes: Array<{ value: typeof aggregationType; label: string }> = [
-    { value: 'SUM', label: 'Sum' },
-    { value: 'AVG', label: 'Average' },
-    { value: 'COUNT', label: 'Count' },
-    { value: 'MIN', label: 'Minimum' },
-    { value: 'MAX', label: 'Maximum' },
+  const aggregationTypes: Array<{
+    value: typeof aggregationType;
+    label: string;
+  }> = [
+    { value: "SUM", label: "Sum" },
+    { value: "AVG", label: "Average" },
+    { value: "COUNT", label: "Count" },
+    { value: "MIN", label: "Minimum" },
+    { value: "MAX", label: "Maximum" },
   ];
 
   if (!tableName) {
@@ -294,27 +388,23 @@ const DynamicChartBuilder: React.FC<DynamicChartBuilderProps> = ({ tableName, co
 
   return (
     <div className="bg-white rounded-xl shadow-sm border border-slate-200">
-      <div className="border-b border-slate-200">
-        {" "}
-        {/* Changed p-3 to px-3 pt-3 */}
-        <div className="flex items-center justify-between">
-          <h2 className="text-lg font-semibold text-slate-900">
-            Chart Builder - <span className="text-blue-600">{tableName}</span>
-          </h2>
-          <button
-            onClick={handleReset}
-            className="flex items-center space-x-2 px-3 py-2 text-slate-600 hover:text-slate-900 hover:bg-slate-100 rounded-lg transition-colors"
-          >
-            <RefreshCw className="h-4 w-4" />
-            <span>Reset</span>
-          </button>
-        </div>
+      <div className="p-4 border-b border-slate-200 flex items-center justify-between">
+        <h2 className="text-lg font-semibold text-slate-900">
+          Chart Builder - <span className="text-blue-600">{tableName}</span>
+        </h2>
+        <button
+          onClick={handleReset}
+          className="flex items-center space-x-2 px-3 py-2 text-slate-600 hover:text-slate-900 hover:bg-slate-100 rounded-lg transition-colors"
+        >
+          <RefreshCw className="h-4 w-4" />
+          <span>Reset</span>
+        </button>
       </div>
 
       <div className="p-4 sm:p-3 pb-2">
         <div className="grid grid-cols-1 lg:grid-cols-3 gap-2 mb-4">
           <div>
-            <label className="block text-sm font-medium text-slate-700 ">
+            <label className="block text-sm font-medium text-slate-700">
               X-Axis (Categories)
             </label>
             <ChartDropZone
@@ -352,8 +442,8 @@ const DynamicChartBuilder: React.FC<DynamicChartBuilderProps> = ({ tableName, co
           </div>
         </div>
 
-        <div className="flex gap-4 mb-4">
-          <div className="">
+        <div className="flex flex-wrap gap-4 mb-4">
+          <div>
             <label className="block text-sm font-medium text-slate-700 mb-3">
               Chart Type
             </label>
