@@ -25,11 +25,11 @@ import {
 import ChartDropZone from "./ChartDropZone";
 import {
   BarChart3,
-  LineChart as LineChartIcon,
-  PieChart as PieChartIcon,
-  Activity,
+  LineChart as LineChartIcon, // Renamed to avoid conflict with Recharts LineChart
+  PieChart as PieChartIcon, // Renamed to avoid conflict with Recharts PieChart
+  Activity, // Used for Area Chart
   RefreshCw,
-  Layers,
+  Layers, // Used for Composed Chart (Mixed Chart)
   Copy,
 } from "lucide-react";
 
@@ -417,11 +417,11 @@ const DynamicChartBuilder: React.FC<DynamicChartBuilderProps> = ({
   };
 
   const chartTypeOptions = [
-    { type: "bar" as const, label: "Bar Chart" },
-    { type: "line" as const, label: "Line Chart" },
-    { type: "area" as const, label: "Area Chart" },
-    { type: "composed" as const, label: "Mixed Chart" },
-    { type: "pie" as const, label: "Pie Chart" },
+    { type: "bar" as const, label: "Bar Chart", icon: BarChart3 },
+    { type: "line" as const, label: "Line Chart", icon: LineChartIcon },
+    { type: "area" as const, label: "Area Chart", icon: Activity },
+    { type: "composed" as const, label: "Mixed Chart", icon: Layers },
+    { type: "pie" as const, label: "Pie Chart", icon: PieChartIcon },
   ];
 
   const aggregationOptions: Array<{
@@ -446,9 +446,10 @@ const DynamicChartBuilder: React.FC<DynamicChartBuilderProps> = ({
     );
   }
 
-  // Determine if the stacked toggle should be disabled
-  const isStackedToggleDisabled =
-    chartType !== "bar" || yAxisColumns.length < 2;
+  // Get the current icon for the selected chart type
+  const CurrentChartIcon =
+    chartTypeOptions.find((option) => option.type === chartType)?.icon ||
+    BarChart3; // Default to BarChart3 if not found
 
   return (
     <div className="bg-white rounded-xl shadow-sm border border-slate-200">
@@ -506,52 +507,94 @@ const DynamicChartBuilder: React.FC<DynamicChartBuilderProps> = ({
           </div>
         </div>
 
-        {/* Aggregation Type, Graph Type, and View Selection Buttons */}
-        <div className="flex flex-wrap items-center gap-4 mb-1 justify-between">
-          {/* Graph Type Selector */}
-          <div>
-            <label className="block text-sm font-medium text-slate-700 mb-3">
-              Graph Type
-            </label>
-            <select
-              value={chartType}
-              onChange={(e) =>
-                setChartType(
-                  e.target.value as "bar" | "line" | "pie" | "area" | "composed"
-                )
-              }
-              className="w-full max-w-xs px-3 py-2 border border-slate-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
-            >
-              {chartTypeOptions.map(({ type, label }) => (
-                <option key={type} value={type}>
-                  {label}
-                </option>
-              ))}
-            </select>
-          </div>
+        {/* Control row: Graph Type, Stacked Option, Aggregation Type (left) and View Buttons (right) */}
+        <div className="flex flex-wrap items-center justify-between gap-4 mb-1">
+          {/* Left-aligned group: Graph Type, Stacked Option, Aggregation Type */}
+          {activeView === "graph" && ( // Conditionally render this entire div
+            <div className="flex flex-wrap items-center gap-4">
+              {/* Graph Type Selector */}
+              <div>
+                <label className="block text-sm font-medium text-slate-700 mb-3 flex items-center">
+                  <CurrentChartIcon className="h-4 w-4 mr-2" />
+                  Graph Type
+                </label>
+                <select
+                  value={chartType}
+                  onChange={(e) =>
+                    setChartType(
+                      e.target.value as
+                        | "bar"
+                        | "line"
+                        | "pie"
+                        | "area"
+                        | "composed"
+                    )
+                  }
+                  className="w-full max-w-xs px-3 py-2 border border-slate-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                >
+                  {chartTypeOptions.map(({ type, label }) => (
+                    <option key={type} value={type}>
+                      {label}
+                    </option>
+                  ))}
+                </select>
+              </div>
 
-          {/* Aggregation Type */}
-          <div>
-            <label className="block text-sm font-medium text-slate-700 mb-3">
-              Aggregation Type (for numeric columns)
-            </label>
-            <select
-              value={aggregationType}
-              onChange={(e) =>
-                setAggregationType(e.target.value as typeof aggregationType)
-              }
-              className="w-full px-3 py-2 border border-slate-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
-            >
-              {aggregationOptions.map(({ value, label }) => (
-                <option key={value} value={value}>
-                  {label}
-                </option>
-              ))}
-            </select>
-          </div>
+              {/* Stacked Bar Toggle - only visible for Bar Chart with 2+ Y columns */}
+              {chartType === "bar" && yAxisColumns.length >= 2 && (
+                <div>
+                  <label className="block text-sm font-medium text-slate-700 mb-3">
+                    Stacked Option
+                  </label>
+                  <label
+                    htmlFor="stacked-bar-toggle"
+                    className={`relative inline-flex items-center cursor-pointer`}
+                  >
+                    <input
+                      type="checkbox"
+                      id="stacked-bar-toggle"
+                      className="sr-only peer"
+                      checked={stacked}
+                      onChange={() => setStacked(!stacked)}
+                    />
+                    <div
+                      className={`w-11 h-6 bg-gray-200 peer-focus:outline-none peer-focus:ring-4 peer-focus:ring-blue-300 rounded-full peer ${
+                        stacked ? "peer-checked:bg-blue-600" : ""
+                      } peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all`}
+                    ></div>
+                    <span className="ml-3 text-sm font-medium text-slate-700">
+                      Stacked Bar
+                    </span>
+                  </label>
+                </div>
+              )}
 
-          {/* View Selection Buttons */}
-          <div className="flex space-x-2">
+              {/* Aggregation Type */}
+              <div>
+                <label className="block text-sm font-medium text-slate-700 mb-3">
+                  Aggregation Type (for numeric columns)
+                </label>
+                <select
+                  value={aggregationType}
+                  onChange={(e) =>
+                    setAggregationType(e.target.value as typeof aggregationType)
+                  }
+                  className="w-full px-3 py-2 border border-slate-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                >
+                  {aggregationOptions.map(({ value, label }) => (
+                    <option key={value} value={value}>
+                      {label}
+                    </option>
+                  ))}
+                </select>
+              </div>
+            </div>
+          )}
+
+          {/* Right-aligned group: View Selection Buttons */}
+          <div className="flex space-x-2 ml-auto">
+            {" "}
+            {/* Added ml-auto here to push to the right */}
             <button
               onClick={() => setActiveView("graph")}
               className={`px-4 py-2 rounded-lg text-sm font-medium transition-colors ${
@@ -588,41 +631,6 @@ const DynamicChartBuilder: React.FC<DynamicChartBuilderProps> = ({
         {/* Conditional Rendering based on activeView */}
         {activeView === "graph" && (
           <div className="bg-slate-50 rounded-lg p-6 pt-4 pb-4">
-            {/* Stacked Bar Toggle - now inside graph view, only visible for Bar Chart */}
-            {chartType === "bar" && ( // Added conditional rendering here
-              <div className="flex items-center mb-4">
-                <label
-                  htmlFor="stacked-bar-toggle"
-                  className={`relative inline-flex items-center cursor-pointer ${
-                    isStackedToggleDisabled
-                      ? "opacity-50 cursor-not-allowed"
-                      : ""
-                  }`}
-                >
-                  <input
-                    type="checkbox"
-                    id="stacked-bar-toggle"
-                    className="sr-only peer"
-                    checked={stacked}
-                    disabled={isStackedToggleDisabled}
-                    onChange={() => setStacked(!stacked)}
-                  />
-                  <div
-                    className={`w-11 h-6 bg-gray-200 peer-focus:outline-none peer-focus:ring-4 peer-focus:ring-blue-300 rounded-full peer ${
-                      stacked ? "peer-checked:bg-blue-600" : ""
-                    } peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all`}
-                  ></div>
-                  <span className="ml-3 text-sm font-medium text-slate-700">
-                    Stacked Bar
-                  </span>
-                </label>
-                {isStackedToggleDisabled && (
-                  <span className="ml-2 text-xs text-slate-400">
-                    (Select Bar chart and 2+ Y columns)
-                  </span>
-                )}
-              </div>
-            )}
             {renderChartContent()}
           </div>
         )}
