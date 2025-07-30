@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect } from "react";
 import {
   BarChart,
   Bar,
@@ -17,8 +17,12 @@ import {
   ResponsiveContainer,
   ComposedChart,
 } from "recharts";
-import { DatabaseColumn, apiService, AggregationRequest } from '../services/api';
-import ChartDropZone from './ChartDropZone';
+import {
+  DatabaseColumn,
+  apiService,
+  AggregationRequest,
+} from "../services/api";
+import ChartDropZone from "./ChartDropZone";
 import {
   BarChart3,
   LineChart as LineChartIcon,
@@ -67,53 +71,32 @@ const DynamicChartBuilder: React.FC<DynamicChartBuilderProps> = ({
     return "string"; // fallback for unknown types
   };
 
-  // This useEffect now handles both determining the correct aggregation type
-  // and fetching the chart data, ensuring consistency.
   useEffect(() => {
     if (!tableName || !xAxisColumn || yAxisColumns.length === 0) {
       setChartData([]);
-      // Reset aggregation type if no valid columns are selected
-      if (aggregationType !== "SUM") {
-        setAggregationType("SUM");
-      }
       return;
     }
 
-    // Determine the *expected* aggregation type based on current column types
-    let expectedAggregationType = aggregationType;
-    const anyYIsString = yAxisColumns.some(col => normalizeType(col.type) === "string");
-
-    if (anyYIsString) {
-      expectedAggregationType = "COUNT";
-    } else {
-      // If no string Y-axis, and current aggregation is COUNT, revert to SUM
-      if (aggregationType === "COUNT") {
-        expectedAggregationType = "SUM";
-      }
-    }
-
-    // If the current aggregationType state doesn't match the expected,
-    // update the state and return. This will cause the effect to re-run
-    // with the correct aggregationType in its dependencies.
-    if (expectedAggregationType !== aggregationType) {
-      setAggregationType(expectedAggregationType);
-      return; // Exit and let the effect re-run with the updated aggregationType
-    }
-
-    // If we reach here, aggregationType state is consistent with column types, proceed to fetch.
     setLoading(true);
     setError(null);
+
+    // Determine aggregation type for each Y-axis column
+    const aggregationTypes = yAxisColumns.map((col) => {
+      const colType = normalizeType(col.type);
+      return colType === "string" ? "COUNT" : aggregationType;
+    });
 
     const request: AggregationRequest = {
       tableName,
       xAxis: xAxisColumn.key,
       yAxes: yAxisColumns.map((col) => col.key),
       groupBy: groupByColumn?.key,
-      aggregationType, // Use the now-consistent state value
+      aggregationTypes, // Send array of aggregation types
     };
 
-    apiService.getAggregatedData(request)
-      .then(response => {
+    apiService
+      .getAggregatedData(request)
+      .then((response) => {
         console.log("Chart data response:", response);
         if (response.success) {
           setChartData(response.data);
@@ -121,15 +104,13 @@ const DynamicChartBuilder: React.FC<DynamicChartBuilderProps> = ({
           setError(response.error || "Failed to fetch chart data");
         }
       })
-      .catch(err => {
+      .catch((err) => {
         setError("Failed to generate chart data");
       })
       .finally(() => {
         setLoading(false);
       });
-
-  }, [tableName, xAxisColumn, yAxisColumns, groupByColumn, aggregationType]); // aggregationType is still a dependency for user-driven changes
-
+  }, [tableName, xAxisColumn, yAxisColumns, groupByColumn, aggregationType]);
 
   const handleDrop = (column: DatabaseColumn, axis: "x" | "y" | "group") => {
     if (axis === "x") {
@@ -159,7 +140,7 @@ const DynamicChartBuilder: React.FC<DynamicChartBuilderProps> = ({
     setGroupByColumn(null);
     setChartData([]);
     setError(null);
-    setAggregationType("SUM"); // Reset aggregation type on full reset
+    setAggregationType("SUM");
   };
 
   const COLORS = [
@@ -209,7 +190,7 @@ const DynamicChartBuilder: React.FC<DynamicChartBuilderProps> = ({
     }
 
     const commonProps = {
-      width: 800, // Recharts ResponsiveContainer handles width, but these are fallback/initial
+      width: 800,
       height: 400,
       data: chartData,
       margin: { top: 20, right: 30, left: 20, bottom: 5 },
@@ -294,7 +275,7 @@ const DynamicChartBuilder: React.FC<DynamicChartBuilderProps> = ({
               <Tooltip />
               <Legend />
               {yAxisColumns.map((column, index) =>
-                index % 2 === 0 ? ( // Alternate between Bar and Line for demonstration
+                index % 2 === 0 ? (
                   <Bar
                     key={column.key}
                     dataKey={column.key}
@@ -317,7 +298,6 @@ const DynamicChartBuilder: React.FC<DynamicChartBuilderProps> = ({
         );
 
       case "pie":
-        // For pie charts, we typically use only the first Y-axis column for values
         const pieData = chartData.map((item) => ({
           name: item.name,
           value: item[yAxisColumns[0]?.key] || 0,
@@ -346,7 +326,7 @@ const DynamicChartBuilder: React.FC<DynamicChartBuilderProps> = ({
                 ))}
               </Pie>
               <Tooltip />
-              <Legend /> {/* Add Legend for Pie Chart */}
+              <Legend />
             </PieChart>
           </ResponsiveContainer>
         );
@@ -467,7 +447,7 @@ const DynamicChartBuilder: React.FC<DynamicChartBuilderProps> = ({
 
           <div>
             <label className="block text-sm font-medium text-slate-700 mb-3">
-              Aggregation Type
+              Aggregation Type (for numeric columns)
             </label>
             <select
               value={aggregationType}
