@@ -116,9 +116,14 @@ const DynamicChartBuilder: React.FC<DynamicChartBuilderProps> = ({
     if (axis === "x") {
       setXAxisColumn(column);
     } else if (axis === "y") {
-      if (!yAxisColumns.find((col) => col.key === column.key)) {
-        setYAxisColumns((prev) => [...prev, column]);
-      }
+      setYAxisColumns((prev) => {
+        // Check if the column already exists in the previous state
+        if (prev.some((col) => col.key === column.key)) {
+          return prev; // If it exists, return the previous state unchanged
+        }
+        // Otherwise, add the new column
+        return [...prev, column];
+      });
     } else if (axis === "group") {
       setGroupByColumn(column);
     }
