@@ -55,6 +55,7 @@ const DynamicChartBuilder: React.FC<DynamicChartBuilderProps> = ({
   const [chartData, setChartData] = useState<any[]>([]);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [stacked, setStacked] = useState(true); // State for stacked bar chart
 
   // Normalize column type to simplify type checking for aggregation logic
   const normalizeType = (type: string): "string" | "number" => {
@@ -91,20 +92,19 @@ const DynamicChartBuilder: React.FC<DynamicChartBuilderProps> = ({
       xAxis: xAxisColumn.key,
       yAxes: yAxisColumns.map((col) => col.key),
       groupBy: groupByColumn?.key,
-      aggregationTypes, // Send array of aggregation types
+      aggregationTypes,
     };
 
     apiService
       .getAggregatedData(request)
       .then((response) => {
-        console.log("Chart data response:", response);
         if (response.success) {
           setChartData(response.data);
         } else {
           setError(response.error || "Failed to fetch chart data");
         }
       })
-      .catch((err) => {
+      .catch(() => {
         setError("Failed to generate chart data");
       })
       .finally(() => {
@@ -117,11 +117,9 @@ const DynamicChartBuilder: React.FC<DynamicChartBuilderProps> = ({
       setXAxisColumn(column);
     } else if (axis === "y") {
       setYAxisColumns((prev) => {
-        // Check if the column already exists in the previous state
         if (prev.some((col) => col.key === column.key)) {
-          return prev; // If it exists, return the previous state unchanged
+          return prev;
         }
-        // Otherwise, add the new column
         return [...prev, column];
       });
     } else if (axis === "group") {
@@ -146,6 +144,7 @@ const DynamicChartBuilder: React.FC<DynamicChartBuilderProps> = ({
     setChartData([]);
     setError(null);
     setAggregationType("SUM");
+    setStacked(false); // Reset stacked state on reset
   };
 
   const COLORS = [
@@ -217,6 +216,8 @@ const DynamicChartBuilder: React.FC<DynamicChartBuilderProps> = ({
                   dataKey={column.key}
                   fill={COLORS[index % COLORS.length]}
                   name={column.label}
+                  // Apply stackId if 'stacked' is true
+                  {...(stacked ? { stackId: 'a' } : {})}
                 />
               ))}
             </BarChart>
@@ -349,7 +350,7 @@ const DynamicChartBuilder: React.FC<DynamicChartBuilderProps> = ({
     { type: "pie" as const, icon: PieChartIcon, label: "Pie Chart" },
   ];
 
-  const aggregationTypes: Array<{
+  const aggregationOptions: Array<{
     value: typeof aggregationType;
     label: string;
   }> = [
@@ -449,7 +450,6 @@ const DynamicChartBuilder: React.FC<DynamicChartBuilderProps> = ({
               ))}
             </div>
           </div>
-
           <div>
             <label className="block text-sm font-medium text-slate-700 mb-3">
               Aggregation Type (for numeric columns)
@@ -461,12 +461,32 @@ const DynamicChartBuilder: React.FC<DynamicChartBuilderProps> = ({
               }
               className="w-full px-3 py-2 border border-slate-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
             >
-              {aggregationTypes.map(({ value, label }) => (
+              {aggregationOptions.map(({ value, label }) => (
                 <option key={value} value={value}>
                   {label}
                 </option>
               ))}
             </select>
+            <div className="flex items-center mt-2">
+              <input
+                type="checkbox"
+                id="stacked-bar"
+                checked={stacked}
+                // Disable if not a bar chart or less than 2 Y-axis columns
+                disabled={chartType !== "bar" || yAxisColumns.length < 2}
+                onChange={() => setStacked(!stacked)}
+                className="mr-2 h-4 w-4 text-blue-600 focus:ring-blue-500 border-gray-300 rounded"
+              />
+              <label htmlFor="stacked-bar" className="text-sm text-slate-700">
+                Stacked Bar
+              </label>
+              {/* Conditional helper text for when the checkbox is disabled */}
+              {chartType !== "bar" || yAxisColumns.length < 2 ? (
+                <span className="ml-2 text-xs text-slate-400">
+                  (Select Bar chart and 2+ Y columns)
+                </span>
+              ) : null}
+            </div>
           </div>
         </div>
 
