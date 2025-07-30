@@ -217,7 +217,7 @@ const DynamicChartBuilder: React.FC<DynamicChartBuilderProps> = ({
                   fill={COLORS[index % COLORS.length]}
                   name={column.label}
                   // Apply stackId if 'stacked' is true
-                  {...(stacked ? { stackId: 'a' } : {})}
+                  {...(stacked ? { stackId: "a" } : {})}
                 />
               ))}
             </BarChart>
@@ -372,6 +372,10 @@ const DynamicChartBuilder: React.FC<DynamicChartBuilderProps> = ({
     );
   }
 
+  // Determine if the stacked toggle should be disabled
+  const isStackedToggleDisabled =
+    chartType !== "bar" || yAxisColumns.length < 2;
+
   return (
     <div className="bg-white rounded-xl shadow-sm border border-slate-200">
       <div className="p-4 border-b border-slate-200 flex items-center justify-between">
@@ -468,24 +472,34 @@ const DynamicChartBuilder: React.FC<DynamicChartBuilderProps> = ({
               ))}
             </select>
             <div className="flex items-center mt-2">
-              <input
-                type="checkbox"
-                id="stacked-bar"
-                checked={stacked}
-                // Disable if not a bar chart or less than 2 Y-axis columns
-                disabled={chartType !== "bar" || yAxisColumns.length < 2}
-                onChange={() => setStacked(!stacked)}
-                className="mr-2 h-4 w-4 text-blue-600 focus:ring-blue-500 border-gray-300 rounded"
-              />
-              <label htmlFor="stacked-bar" className="text-sm text-slate-700">
-                Stacked Bar
+              <label
+                htmlFor="stacked-bar-toggle"
+                className={`relative inline-flex items-center cursor-pointer ${
+                  isStackedToggleDisabled ? "opacity-50 cursor-not-allowed" : ""
+                }`}
+              >
+                <input
+                  type="checkbox"
+                  id="stacked-bar-toggle"
+                  className="sr-only peer"
+                  checked={stacked}
+                  disabled={isStackedToggleDisabled}
+                  onChange={() => setStacked(!stacked)}
+                />
+                <div
+                  className={`w-11 h-6 bg-gray-200 peer-focus:outline-none peer-focus:ring-4 peer-focus:ring-blue-300 rounded-full peer ${
+                    stacked ? "peer-checked:bg-blue-600" : ""
+                  } peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all`}
+                ></div>
+                <span className="ml-3 text-sm font-medium text-slate-700">
+                  Stacked Bar
+                </span>
               </label>
-              {/* Conditional helper text for when the checkbox is disabled */}
-              {chartType !== "bar" || yAxisColumns.length < 2 ? (
+              {isStackedToggleDisabled && (
                 <span className="ml-2 text-xs text-slate-400">
                   (Select Bar chart and 2+ Y columns)
                 </span>
-              ) : null}
+              )}
             </div>
           </div>
         </div>
