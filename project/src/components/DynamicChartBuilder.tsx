@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from "react";
+import React, { useState, useEffect, useCallback } from "react";
 import {
   BarChart,
   Bar,
@@ -30,6 +30,7 @@ import {
   Activity,
   RefreshCw,
   Layers,
+  Copy, // Import Copy icon
 } from "lucide-react";
 
 interface DynamicChartBuilderProps {
@@ -56,6 +57,11 @@ const DynamicChartBuilder: React.FC<DynamicChartBuilderProps> = ({
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [stacked, setStacked] = useState(true); // State for stacked bar chart
+  const [generatedQuery, setGeneratedQuery] = useState<string>(""); // State for the query string
+  const [copySuccess, setCopySuccess] = useState<string>(""); // State for copy success message
+  const [activeView, setActiveView] = useState<"graph" | "table" | "query">(
+    "graph"
+  ); // New state for active view
 
   // Normalize column type to simplify type checking for aggregation logic
   const normalizeType = (type: string): "string" | "number" => {
@@ -72,14 +78,53 @@ const DynamicChartBuilder: React.FC<DynamicChartBuilderProps> = ({
     return "string"; // fallback for unknown types
   };
 
+  // Function to construct the SQL query string
+  const constructSqlQuery = useCallback(() => {
+    if (!tableName || !xAxisColumn || yAxisColumns.length === 0) {
+      return "";
+    }
+
+    const selectParts: string[] = [];
+    const groupByParts: string[] = [];
+
+    // X-axis column is always selected and grouped by, aliased as 'name' for chart compatibility
+    selectParts.push(`${xAxisColumn.key} AS name`);
+    groupByParts.push(xAxisColumn.key);
+
+    // Add Group By column if selected, and include it in SELECT and GROUP BY
+    if (groupByColumn) {
+      selectParts.push(groupByColumn.key);
+      groupByParts.push(groupByColumn.key);
+    }
+
+    // Add Y-axis columns with aggregation
+    yAxisColumns.forEach((col) => {
+      const colType = normalizeType(col.type);
+      const agg = colType === "string" ? "COUNT" : aggregationType;
+      selectParts.push(`${agg}(${col.key}) AS ${col.key}`); // Alias aggregated columns by their original key
+    });
+
+    let query = `SELECT ${selectParts.join(", ")} FROM ${tableName}`;
+
+    if (groupByParts.length > 0) {
+      query += ` GROUP BY ${groupByParts.join(", ")}`;
+    }
+
+    return query;
+  }, [tableName, xAxisColumn, yAxisColumns, groupByColumn, aggregationType]);
+
   useEffect(() => {
     if (!tableName || !xAxisColumn || yAxisColumns.length === 0) {
       setChartData([]);
+      setGeneratedQuery(""); // Clear query if criteria not met
       return;
     }
 
     setLoading(true);
     setError(null);
+
+    // Update the generated query string
+    setGeneratedQuery(constructSqlQuery());
 
     // Determine aggregation type for each Y-axis column
     const aggregationTypes = yAxisColumns.map((col) => {
@@ -110,7 +155,14 @@ const DynamicChartBuilder: React.FC<DynamicChartBuilderProps> = ({
       .finally(() => {
         setLoading(false);
       });
-  }, [tableName, xAxisColumn, yAxisColumns, groupByColumn, aggregationType]);
+  }, [
+    tableName,
+    xAxisColumn,
+    yAxisColumns,
+    groupByColumn,
+    aggregationType,
+    constructSqlQuery,
+  ]);
 
   const handleDrop = (column: DatabaseColumn, axis: "x" | "y" | "group") => {
     if (axis === "x") {
@@ -145,6 +197,30 @@ const DynamicChartBuilder: React.FC<DynamicChartBuilderProps> = ({
     setError(null);
     setAggregationType("SUM");
     setStacked(false); // Reset stacked state on reset
+    setGeneratedQuery(""); // Clear generated query on reset
+    setActiveView("graph"); // Reset view to graph on reset
+  };
+
+  const handleCopyQuery = () => {
+    const queryToCopy = generatedQuery.trim();
+    if (queryToCopy) {
+      // Use document.execCommand('copy') for better compatibility in iframes
+      const textArea = document.createElement("textarea");
+      textArea.value = queryToCopy;
+      document.body.appendChild(textArea);
+      textArea.select();
+      try {
+        document.execCommand("copy");
+        setCopySuccess("Copied!");
+      } catch (err) {
+        setCopySuccess("Failed to copy.");
+        console.error("Failed to copy query: ", err);
+      }
+      document.body.removeChild(textArea);
+
+      // Clear the success message after a short delay
+      setTimeout(() => setCopySuccess(""), 2000);
+    }
   };
 
   const COLORS = [
@@ -432,7 +508,9 @@ const DynamicChartBuilder: React.FC<DynamicChartBuilderProps> = ({
           </div>
         </div>
 
+        {/* New structure for Chart Type, Aggregation Type, Stacked Bar, and View Buttons */}
         <div className="flex flex-wrap gap-4 mb-4">
+          {/* Chart Type */}
           <div>
             <label className="block text-sm font-medium text-slate-700 mb-3">
               Chart Type
@@ -454,6 +532,8 @@ const DynamicChartBuilder: React.FC<DynamicChartBuilderProps> = ({
               ))}
             </div>
           </div>
+
+          {/* Aggregation Type */}
           <div>
             <label className="block text-sm font-medium text-slate-700 mb-3">
               Aggregation Type (for numeric columns)
@@ -471,42 +551,182 @@ const DynamicChartBuilder: React.FC<DynamicChartBuilderProps> = ({
                 </option>
               ))}
             </select>
-            <div className="flex items-center mt-2">
-              <label
-                htmlFor="stacked-bar-toggle"
-                className={`relative inline-flex items-center cursor-pointer ${
-                  isStackedToggleDisabled ? "opacity-50 cursor-not-allowed" : ""
-                }`}
-              >
-                <input
-                  type="checkbox"
-                  id="stacked-bar-toggle"
-                  className="sr-only peer"
-                  checked={stacked}
-                  disabled={isStackedToggleDisabled}
-                  onChange={() => setStacked(!stacked)}
-                />
-                <div
-                  className={`w-11 h-6 bg-gray-200 peer-focus:outline-none peer-focus:ring-4 peer-focus:ring-blue-300 rounded-full peer ${
-                    stacked ? "peer-checked:bg-blue-600" : ""
-                  } peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all`}
-                ></div>
-                <span className="ml-3 text-sm font-medium text-slate-700">
-                  Stacked Bar
-                </span>
-              </label>
-              {isStackedToggleDisabled && (
-                <span className="ml-2 text-xs text-slate-400">
-                  (Select Bar chart and 2+ Y columns)
-                </span>
-              )}
-            </div>
           </div>
         </div>
 
-        <div className="bg-slate-50 rounded-lg p-6 pt-4 pb-4">
-          {renderChart()}
+        {/* Second line: Stacked Bar & View Selection Buttons */}
+        <div className="flex flex-wrap items-center gap-4 mb-1 justify-end">
+          {/* Stacked Bar Toggle */}
+          <div className="flex items-center">
+            <label
+              htmlFor="stacked-bar-toggle"
+              className={`relative inline-flex items-center cursor-pointer ${
+                isStackedToggleDisabled ? "opacity-50 cursor-not-allowed" : ""
+              }`}
+            >
+              <input
+                type="checkbox"
+                id="stacked-bar-toggle"
+                className="sr-only peer"
+                checked={stacked}
+                disabled={isStackedToggleDisabled}
+                onChange={() => setStacked(!stacked)}
+              />
+              <div
+                className={`w-11 h-6 bg-gray-200 peer-focus:outline-none peer-focus:ring-4 peer-focus:ring-blue-300 rounded-full peer ${
+                  stacked ? "peer-checked:bg-blue-600" : ""
+                } peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all`}
+              ></div>
+              <span className="ml-3 text-sm font-medium text-slate-700">
+                Stacked Bar
+              </span>
+            </label>
+            {isStackedToggleDisabled && (
+              <span className="ml-2 text-xs text-slate-400">
+                (Select Bar chart and 2+ Y columns)
+              </span>
+            )}
+          </div>
+
+          {/* View Selection Buttons */}
+          <div className="flex space-x-2">
+            <button
+              onClick={() => setActiveView("graph")}
+              className={`px-4 py-2 rounded-lg text-sm font-medium transition-colors ${
+                activeView === "graph"
+                  ? "bg-blue-600 text-white"
+                  : "bg-slate-200 text-slate-700 hover:bg-slate-300"
+              }`}
+            >
+              Graph
+            </button>
+            <button
+              onClick={() => setActiveView("table")}
+              className={`px-4 py-2 rounded-lg text-sm font-medium transition-colors ${
+                activeView === "table"
+                  ? "bg-blue-600 text-white"
+                  : "bg-slate-200 text-slate-700 hover:bg-slate-300"
+              }`}
+            >
+              Table
+            </button>
+            <button
+              onClick={() => setActiveView("query")}
+              className={`px-4 py-2 rounded-lg text-sm font-medium transition-colors ${
+                activeView === "query"
+                  ? "bg-blue-600 text-white"
+                  : "bg-slate-200 text-slate-700 hover:bg-slate-300"
+              }`}
+            >
+              Query
+            </button>
+          </div>
         </div>
+
+        {/* Conditional Rendering based on activeView */}
+        {activeView === "graph" && (
+          <div className="bg-slate-50 rounded-lg p-6 pt-4 pb-4">
+            {renderChart()}
+          </div>
+        )}
+
+        {activeView === "table" && (
+          <div className="mt-4 p-4 bg-white rounded-lg border border-slate-200 overflow-x-auto max-h-96 overflow-y-auto">
+            <h3 className="text-md font-semibold mb-2 text-slate-900">
+              Chart Data Table
+            </h3>
+            {chartData.length > 0 &&
+            (xAxisColumn || yAxisColumns.length > 0) ? (
+              <table className="min-w-full divide-y divide-slate-300">
+                <thead className="bg-slate-50">
+                  <tr>
+                    {xAxisColumn && (
+                      <th className="px-6 py-3 text-left text-xs font-medium text-slate-500 uppercase tracking-wider">
+                        {xAxisColumn.label}
+                      </th>
+                    )}
+                    {groupByColumn && (
+                      <th className="px-6 py-3 text-left text-xs font-medium text-slate-500 uppercase tracking-wider">
+                        {groupByColumn.label}
+                      </th>
+                    )}
+                    {yAxisColumns.map((col) => (
+                      <th
+                        key={col.key}
+                        className="px-6 py-3 text-left text-xs font-medium text-slate-500 uppercase tracking-wider"
+                      >
+                        {col.label} (
+                        {normalizeType(col.type) === "string"
+                          ? "COUNT"
+                          : aggregationType}
+                        )
+                      </th>
+                    ))}
+                  </tr>
+                </thead>
+                <tbody className="bg-white divide-y divide-slate-200">
+                  {chartData.map((row, rowIndex) => (
+                    <tr key={rowIndex}>
+                      {xAxisColumn && (
+                        <td className="px-6 py-4 whitespace-nowrap text-sm font-medium text-slate-900">
+                          {row.name}{" "}
+                          {/* 'name' is aliased from xAxisColumn.key */}
+                        </td>
+                      )}
+                      {groupByColumn && (
+                        <td className="px-6 py-4 whitespace-nowrap text-sm text-slate-500">
+                          {row[groupByColumn.key]}
+                        </td>
+                      )}
+                      {yAxisColumns.map((col) => (
+                        <td
+                          key={col.key}
+                          className="px-6 py-4 whitespace-nowrap text-sm text-slate-500"
+                        >
+                          {row[col.key]}
+                        </td>
+                      ))}
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            ) : (
+              <p className="text-slate-500 text-center py-8">
+                Drag and drop columns to generate data for the table.
+              </p>
+            )}
+          </div>
+        )}
+
+        {activeView === "query" && generatedQuery && (
+          <div className="mt-4 p-4 bg-gray-800 rounded-lg text-white font-mono text-sm relative">
+            <h3 className="text-md font-semibold mb-2 text-gray-200">
+              Generated SQL Query
+            </h3>
+            <pre className="whitespace-pre-wrap break-all pr-10">
+              {generatedQuery}
+            </pre>
+            <button
+              onClick={handleCopyQuery}
+              className="absolute top-4 right-4 p-2 rounded-full bg-gray-700 hover:bg-gray-600 text-gray-300 hover:text-white transition-colors"
+              title="Copy to clipboard"
+            >
+              <Copy className="h-4 w-4" />
+            </button>
+            {copySuccess && (
+              <span className="absolute top-4 right-14 text-xs text-green-400">
+                {copySuccess}
+              </span>
+            )}
+          </div>
+        )}
+        {activeView === "query" && !generatedQuery && (
+          <div className="mt-4 p-4 bg-gray-800 rounded-lg text-white font-mono text-sm relative">
+            <p className="text-gray-400 text-center py-8">
+              Select X-axis and Y-axis columns to generate the SQL query.
+            </p>
+          </div>
+        )}
       </div>
     </div>
   );
