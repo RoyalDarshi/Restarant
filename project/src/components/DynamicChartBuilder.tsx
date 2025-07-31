@@ -23,14 +23,15 @@ import {
   AggregationRequest,
 } from "../services/api";
 import ChartDropZone from "./ChartDropZone";
+import ChartDataTable from "./ChartDataTable"; // Import the new component
+import SqlQueryDisplay from "./SqlQueryDisplay"; // Import the new component
 import {
   BarChart3,
-  LineChart as LineChartIcon, // Renamed to avoid conflict with Recharts LineChart
-  PieChart as PieChartIcon, // Renamed to avoid conflict with Recharts PieChart
-  Activity, // Used for Area Chart
+  LineChart as LineChartIcon,
+  PieChart as PieChartIcon,
+  Activity,
   RefreshCw,
-  Layers, // Used for Composed Chart (Mixed Chart)
-  Copy,
+  Layers,
 } from "lucide-react";
 
 interface DynamicChartBuilderProps {
@@ -56,9 +57,8 @@ const DynamicChartBuilder: React.FC<DynamicChartBuilderProps> = ({
   const [chartData, setChartData] = useState<any[]>([]);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
-  const [stacked, setStacked] = useState(true);
+  const [stacked, setStacked] = useState(true); // Default to false, will be toggled
   const [generatedQuery, setGeneratedQuery] = useState<string>("");
-  const [copySuccess, setCopySuccess] = useState<string>("");
   const [activeView, setActiveView] = useState<"graph" | "table" | "query">(
     "graph"
   );
@@ -202,26 +202,6 @@ const DynamicChartBuilder: React.FC<DynamicChartBuilderProps> = ({
     setChartType("bar"); // Reset chart type to default on reset
   };
 
-  const handleCopyQuery = () => {
-    const queryToCopy = generatedQuery.trim();
-    if (queryToCopy) {
-      const textArea = document.createElement("textarea");
-      textArea.value = queryToCopy;
-      document.body.appendChild(textArea);
-      textArea.select();
-      try {
-        document.execCommand("copy");
-        setCopySuccess("Copied!");
-      } catch (err) {
-        setCopySuccess("Failed to copy.");
-        console.error("Failed to copy query: ", err);
-      }
-      document.body.removeChild(textArea);
-
-      setTimeout(() => setCopySuccess(""), 2000);
-    }
-  };
-
   const COLORS = [
     "#3B82F6",
     "#EF4444",
@@ -290,7 +270,12 @@ const DynamicChartBuilder: React.FC<DynamicChartBuilderProps> = ({
                   key={column.key}
                   dataKey={column.key}
                   fill={COLORS[index % COLORS.length]}
-                  name={column.label}
+                  // Dynamically set the name for string columns to show "Count of Column"
+                  name={
+                    normalizeType(column.type) === "string"
+                      ? `Count of ${column.label}`
+                      : column.label
+                  }
                   {...(stacked ? { stackId: "a" } : {})}
                 />
               ))}
@@ -314,7 +299,12 @@ const DynamicChartBuilder: React.FC<DynamicChartBuilderProps> = ({
                   dataKey={column.key}
                   stroke={COLORS[index % COLORS.length]}
                   strokeWidth={2}
-                  name={column.label}
+                  // Dynamically set the name for string columns to show "Count of Column"
+                  name={
+                    normalizeType(column.type) === "string"
+                      ? `Count of ${column.label}`
+                      : column.label
+                  }
                 />
               ))}
             </LineChart>
@@ -338,7 +328,12 @@ const DynamicChartBuilder: React.FC<DynamicChartBuilderProps> = ({
                   stroke={COLORS[index % COLORS.length]}
                   fill={COLORS[index % COLORS.length]}
                   fillOpacity={0.3}
-                  name={column.label}
+                  // Dynamically set the name for string columns to show "Count of Column"
+                  name={
+                    normalizeType(column.type) === "string"
+                      ? `Count of ${column.label}`
+                      : column.label
+                  }
                 />
               ))}
             </AreaChart>
@@ -360,7 +355,12 @@ const DynamicChartBuilder: React.FC<DynamicChartBuilderProps> = ({
                     key={column.key}
                     dataKey={column.key}
                     fill={COLORS[index % COLORS.length]}
-                    name={column.label}
+                    // Dynamically set the name for string columns to show "Count of Column"
+                    name={
+                      normalizeType(column.type) === "string"
+                        ? `Count of ${column.label}`
+                        : column.label
+                    }
                   />
                 ) : (
                   <Line
@@ -369,7 +369,12 @@ const DynamicChartBuilder: React.FC<DynamicChartBuilderProps> = ({
                     dataKey={column.key}
                     stroke={COLORS[index % COLORS.length]}
                     strokeWidth={2}
-                    name={column.label}
+                    // Dynamically set the name for string columns to show "Count of Column"
+                    name={
+                      normalizeType(column.type) === "string"
+                        ? `Count of ${column.label}`
+                        : column.label
+                    }
                   />
                 )
               )}
@@ -540,34 +545,36 @@ const DynamicChartBuilder: React.FC<DynamicChartBuilderProps> = ({
                 </select>
               </div>
 
-              {/* Stacked Bar Toggle - only visible for Bar Chart with 2+ Y columns */}
-              {chartType === "bar" && yAxisColumns.length >= 2 && (
-                <div>
-                  <label className="block text-sm font-medium text-slate-700 mb-3">
-                    Stacked Option
-                  </label>
-                  <label
-                    htmlFor="stacked-bar-toggle"
-                    className={`relative inline-flex items-center cursor-pointer`}
-                  >
-                    <input
-                      type="checkbox"
-                      id="stacked-bar-toggle"
-                      className="sr-only peer"
-                      checked={stacked}
-                      onChange={() => setStacked(!stacked)}
-                    />
-                    <div
-                      className={`w-11 h-6 bg-gray-200 peer-focus:outline-none peer-focus:ring-4 peer-focus:ring-blue-300 rounded-full peer ${
-                        stacked ? "peer-checked:bg-blue-600" : ""
-                      } peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all`}
-                    ></div>
-                    <span className="ml-3 text-sm font-medium text-slate-700">
-                      Stacked Bar
-                    </span>
-                  </label>
-                </div>
-              )}
+              {/* Stacked Bar Toggle - only visible for Bar Chart with 2+ Y columns AND an X-axis column */}
+              {chartType === "bar" &&
+                yAxisColumns.length >= 2 &&
+                xAxisColumn && (
+                  <div>
+                    <label className="block text-sm font-medium text-slate-700 mb-3">
+                      Stacked Option
+                    </label>
+                    <label
+                      htmlFor="stacked-bar-toggle"
+                      className={`relative inline-flex items-center cursor-pointer`}
+                    >
+                      <input
+                        type="checkbox"
+                        id="stacked-bar-toggle"
+                        className="sr-only peer"
+                        checked={stacked}
+                        onChange={() => setStacked(!stacked)}
+                      />
+                      <div
+                        className={`w-11 h-6 bg-gray-200 peer-focus:outline-none peer-focus:ring-4 peer-focus:ring-blue-300 rounded-full peer ${
+                          stacked ? "peer-checked:bg-blue-600" : ""
+                        } peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all`}
+                      ></div>
+                      <span className="ml-3 text-sm font-medium text-slate-700">
+                        Stacked Bar
+                      </span>
+                    </label>
+                  </div>
+                )}
 
               {/* Aggregation Type */}
               <div>
@@ -636,101 +643,17 @@ const DynamicChartBuilder: React.FC<DynamicChartBuilderProps> = ({
         )}
 
         {activeView === "table" && (
-          <div className="mt-4 p-4 bg-white rounded-lg border border-slate-200 overflow-x-auto max-h-96 overflow-y-auto">
-            <h3 className="text-md font-semibold mb-2 text-slate-900">
-              Chart Data Table
-            </h3>
-            {chartData.length > 0 &&
-            (xAxisColumn || yAxisColumns.length > 0) ? (
-              <table className="min-w-full divide-y divide-slate-300">
-                <thead className="bg-slate-50">
-                  <tr>
-                    {xAxisColumn && (
-                      <th className="px-6 py-3 text-left text-xs font-medium text-slate-500 uppercase tracking-wider">
-                        {xAxisColumn.label}
-                      </th>
-                    )}
-                    {groupByColumn && (
-                      <th className="px-6 py-3 text-left text-xs font-medium text-slate-500 uppercase tracking-wider">
-                        {groupByColumn.label}
-                      </th>
-                    )}
-                    {yAxisColumns.map((col) => (
-                      <th
-                        key={col.key}
-                        className="px-6 py-3 text-left text-xs font-medium text-slate-500 uppercase tracking-wider"
-                      >
-                        {col.label} (
-                        {normalizeType(col.type) === "string"
-                          ? "COUNT"
-                          : aggregationType}
-                        )
-                      </th>
-                    ))}
-                  </tr>
-                </thead>
-                <tbody className="bg-white divide-y divide-slate-200">
-                  {chartData.map((row, rowIndex) => (
-                    <tr key={rowIndex}>
-                      {xAxisColumn && (
-                        <td className="px-6 py-4 whitespace-nowrap text-sm font-medium text-slate-900">
-                          {row.name}{" "}
-                          {/* 'name' is aliased from xAxisColumn.key */}
-                        </td>
-                      )}
-                      {groupByColumn && (
-                        <td className="px-6 py-4 whitespace-nowrap text-sm text-slate-500">
-                          {row[groupByColumn.key]}
-                        </td>
-                      )}
-                      {yAxisColumns.map((col) => (
-                        <td
-                          key={col.key}
-                          className="px-6 py-4 whitespace-nowrap text-sm text-slate-500"
-                        >
-                          {row[col.key]}
-                        </td>
-                      ))}
-                    </tr>
-                  ))}
-                </tbody>
-              </table>
-            ) : (
-              <p className="text-slate-500 text-center py-8">
-                Drag and drop columns to generate data for the table.
-              </p>
-            )}
-          </div>
+          <ChartDataTable
+            chartData={chartData}
+            xAxisColumn={xAxisColumn}
+            yAxisColumns={yAxisColumns}
+            groupByColumn={groupByColumn}
+            aggregationType={aggregationType}
+          />
         )}
 
-        {activeView === "query" && generatedQuery && (
-          <div className="mt-4 p-4 bg-gray-800 rounded-lg text-white font-mono text-sm relative">
-            <h3 className="text-md font-semibold mb-2 text-gray-200">
-              Generated SQL Query
-            </h3>
-            <pre className="whitespace-pre-wrap break-all pr-10">
-              {generatedQuery}
-            </pre>
-            <button
-              onClick={handleCopyQuery}
-              className="absolute top-4 right-4 p-2 rounded-full bg-gray-700 hover:bg-gray-600 text-gray-300 hover:text-white transition-colors"
-              title="Copy to clipboard"
-            >
-              <Copy className="h-4 w-4" />
-            </button>
-            {copySuccess && (
-              <span className="absolute top-4 right-14 text-xs text-green-400">
-                {copySuccess}
-              </span>
-            )}
-          </div>
-        )}
-        {activeView === "query" && !generatedQuery && (
-          <div className="mt-4 p-4 bg-gray-800 rounded-lg text-white font-mono text-sm relative">
-            <p className="text-gray-400 text-center py-8">
-              Select X-axis and Y-axis columns to generate the SQL query.
-            </p>
-          </div>
+        {activeView === "query" && (
+          <SqlQueryDisplay generatedQuery={generatedQuery} />
         )}
       </div>
     </div>
