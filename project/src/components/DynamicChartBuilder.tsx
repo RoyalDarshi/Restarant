@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useCallback } from "react";
+import React, { useState, useEffect, useCallback, useRef } from "react";
 import {
   BarChart,
   Bar,
@@ -17,14 +17,15 @@ import {
   ResponsiveContainer,
   ComposedChart,
 } from "recharts";
+import html2canvas from "html2canvas"; // Import html2canvas
 import {
   DatabaseColumn,
   apiService,
   AggregationRequest,
 } from "../services/api";
 import ChartDropZone from "./ChartDropZone";
-import ChartDataTable from "./ChartDataTable"; // Import the new component
-import SqlQueryDisplay from "./SqlQueryDisplay"; // Import the new component
+import ChartDataTable from "./ChartDataTable";
+import SqlQueryDisplay from "./SqlQueryDisplay";
 import {
   BarChart3,
   LineChart as LineChartIcon,
@@ -32,6 +33,7 @@ import {
   Activity,
   RefreshCw,
   Layers,
+  Download, // Import Download icon
 } from "lucide-react";
 
 interface DynamicChartBuilderProps {
@@ -50,18 +52,21 @@ const DynamicChartBuilder: React.FC<DynamicChartBuilderProps> = ({
   );
   const [chartType, setChartType] = useState<
     "bar" | "line" | "pie" | "area" | "composed"
-  >("bar"); // Default chart type
+  >("bar");
   const [aggregationType, setAggregationType] = useState<
     "SUM" | "AVG" | "COUNT" | "MIN" | "MAX"
   >("SUM");
   const [chartData, setChartData] = useState<any[]>([]);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
-  const [stacked, setStacked] = useState(true); // Default to false, will be toggled
+  const [stacked, setStacked] = useState(true);
   const [generatedQuery, setGeneratedQuery] = useState<string>("");
   const [activeView, setActiveView] = useState<"graph" | "table" | "query">(
     "graph"
   );
+
+  // Ref for the chart container to capture as image
+  const chartContainerRef = useRef<HTMLDivElement>(null);
 
   // Normalize column type to simplify type checking for aggregation logic
   const normalizeType = (type: string): "string" | "number" => {
@@ -219,6 +224,56 @@ const DynamicChartBuilder: React.FC<DynamicChartBuilderProps> = ({
     return !isNaN(num) ? num.toFixed(2) : value; // If it's a valid number, format it; otherwise, return as is
   };
 
+  const handleDownloadGraph = () => {
+    if (chartContainerRef.current) {
+      html2canvas(chartContainerRef.current, {
+        useCORS: true, // Important for images loaded from external sources if any
+        scale: 2, // Increase scale for better resolution
+      }).then((canvas) => {
+        const link = document.createElement("a");
+        link.download = `${tableName}_${chartType}_chart.png`;
+        link.href = canvas.toDataURL("image/png");
+        link.click();
+      });
+    }
+  };
+
+  const handleDownloadTable = () => {
+    if (chartData.length === 0) return;
+
+    // Determine headers
+    const headers = [
+      xAxisColumn?.label || xAxisColumn?.key || "X-Axis",
+      ...(groupByColumn ? [groupByColumn.label || groupByColumn.key] : []),
+      ...yAxisColumns.map((col) => {
+        const colType = normalizeType(col.type);
+        const agg = colType === "string" ? "COUNT" : aggregationType;
+        return `${agg} of ${col.label || col.key}`;
+      }),
+    ];
+
+    // Create CSV rows
+    const csvRows = [
+      headers.join(","), // Header row
+      ...chartData.map((row) => {
+        const values = [
+          row.name,
+          ...(groupByColumn ? [row[groupByColumn.key]] : []),
+          ...yAxisColumns.map((col) => formatNumericValue(row[col.key])),
+        ];
+        return values.join(",");
+      }),
+    ];
+
+    const csvString = csvRows.join("\n");
+    const blob = new Blob([csvString], { type: "text/csv;charset=utf-8;" });
+    const link = document.createElement("a");
+    link.href = URL.createObjectURL(blob);
+    link.download = `${tableName}_data_table.csv`;
+    link.click();
+    URL.revokeObjectURL(link.href); // Clean up the URL object
+  };
+
   const renderChartContent = () => {
     if (loading) {
       return (
@@ -268,18 +323,14 @@ const DynamicChartBuilder: React.FC<DynamicChartBuilderProps> = ({
             <BarChart {...commonProps}>
               <CartesianGrid strokeDasharray="3 3" />
               <XAxis dataKey="name" />
-              <YAxis tickFormatter={formatNumericValue} />{" "}
-              {/* Using formatNumericValue */}
-              <Tooltip
-                formatter={(value: any) => formatNumericValue(value)} // Using formatNumericValue
-              />
+              <YAxis tickFormatter={formatNumericValue} />
+              <Tooltip formatter={(value: any) => formatNumericValue(value)} />
               <Legend />
               {yAxisColumns.map((column, index) => (
                 <Bar
                   key={column.key}
                   dataKey={column.key}
                   fill={COLORS[index % COLORS.length]}
-                  // Dynamically set the name for string columns to show "Count of Column"
                   name={
                     normalizeType(column.type) === "string"
                       ? `Count of ${column.label}`
@@ -298,11 +349,8 @@ const DynamicChartBuilder: React.FC<DynamicChartBuilderProps> = ({
             <LineChart {...commonProps}>
               <CartesianGrid strokeDasharray="3 3" />
               <XAxis dataKey="name" />
-              <YAxis tickFormatter={formatNumericValue} />{" "}
-              {/* Using formatNumericValue */}
-              <Tooltip
-                formatter={(value: any) => formatNumericValue(value)} // Using formatNumericValue
-              />
+              <YAxis tickFormatter={formatNumericValue} />
+              <Tooltip formatter={(value: any) => formatNumericValue(value)} />
               <Legend />
               {yAxisColumns.map((column, index) => (
                 <Line
@@ -311,7 +359,6 @@ const DynamicChartBuilder: React.FC<DynamicChartBuilderProps> = ({
                   dataKey={column.key}
                   stroke={COLORS[index % COLORS.length]}
                   strokeWidth={2}
-                  // Dynamically set the name for string columns to show "Count of Column"
                   name={
                     normalizeType(column.type) === "string"
                       ? `Count of ${column.label}`
@@ -329,11 +376,8 @@ const DynamicChartBuilder: React.FC<DynamicChartBuilderProps> = ({
             <AreaChart {...commonProps}>
               <CartesianGrid strokeDasharray="3 3" />
               <XAxis dataKey="name" />
-              <YAxis tickFormatter={formatNumericValue} />{" "}
-              {/* Using formatNumericValue */}
-              <Tooltip
-                formatter={(value: any) => formatNumericValue(value)} // Using formatNumericValue
-              />
+              <YAxis tickFormatter={formatNumericValue} />
+              <Tooltip formatter={(value: any) => formatNumericValue(value)} />
               <Legend />
               {yAxisColumns.map((column, index) => (
                 <Area
@@ -343,7 +387,6 @@ const DynamicChartBuilder: React.FC<DynamicChartBuilderProps> = ({
                   stroke={COLORS[index % COLORS.length]}
                   fill={COLORS[index % COLORS.length]}
                   fillOpacity={0.3}
-                  // Dynamically set the name for string columns to show "Count of Column"
                   name={
                     normalizeType(column.type) === "string"
                       ? `Count of ${column.label}`
@@ -361,11 +404,8 @@ const DynamicChartBuilder: React.FC<DynamicChartBuilderProps> = ({
             <ComposedChart {...commonProps}>
               <CartesianGrid strokeDasharray="3 3" />
               <XAxis dataKey="name" />
-              <YAxis tickFormatter={formatNumericValue} />{" "}
-              {/* Using formatNumericValue */}
-              <Tooltip
-                formatter={(value: any) => formatNumericValue(value)} // Using formatNumericValue
-              />
+              <YAxis tickFormatter={formatNumericValue} />
+              <Tooltip formatter={(value: any) => formatNumericValue(value)} />
               <Legend />
               {yAxisColumns.map((column, index) =>
                 index % 2 === 0 ? (
@@ -373,7 +413,6 @@ const DynamicChartBuilder: React.FC<DynamicChartBuilderProps> = ({
                     key={column.key}
                     dataKey={column.key}
                     fill={COLORS[index % COLORS.length]}
-                    // Dynamically set the name for string columns to show "Count of Column"
                     name={
                       normalizeType(column.type) === "string"
                         ? `Count of ${column.label}`
@@ -387,7 +426,6 @@ const DynamicChartBuilder: React.FC<DynamicChartBuilderProps> = ({
                     dataKey={column.key}
                     stroke={COLORS[index % COLORS.length]}
                     strokeWidth={2}
-                    // Dynamically set the name for string columns to show "Count of Column"
                     name={
                       normalizeType(column.type) === "string"
                         ? `Count of ${column.label}`
@@ -428,10 +466,7 @@ const DynamicChartBuilder: React.FC<DynamicChartBuilderProps> = ({
                   />
                 ))}
               </Pie>
-              <Tooltip
-                formatter={(value: any) => formatNumericValue(value)} // Using formatNumericValue
-              />
-
+              <Tooltip formatter={(value: any) => formatNumericValue(value)} />
               <Legend />
             </PieChart>
           </ResponsiveContainer>
@@ -619,10 +654,8 @@ const DynamicChartBuilder: React.FC<DynamicChartBuilderProps> = ({
             </select>
           </div>
 
-          {/* Right-aligned group: View Selection Buttons */}
+          {/* Right-aligned group: View Selection Buttons and Download Buttons */}
           <div className="flex space-x-2 ml-auto">
-            {" "}
-            {/* Added ml-auto here to push to the right */}
             <button
               onClick={() => setActiveView("graph")}
               className={`px-4 py-2 rounded-lg text-sm font-medium transition-colors ${
@@ -653,12 +686,39 @@ const DynamicChartBuilder: React.FC<DynamicChartBuilderProps> = ({
             >
               Query
             </button>
+
+            {/* Download Buttons - Conditionally rendered */}
+            {chartData.length > 0 && (
+              <>
+                {activeView === "graph" && (
+                  <button
+                    onClick={handleDownloadGraph}
+                    className="flex items-center space-x-1 px-4 py-2 rounded-lg text-sm font-medium bg-green-600 text-white hover:bg-green-700 transition-colors"
+                  >
+                    <Download className="h-4 w-4" />
+                    <span>Download Graph</span>
+                  </button>
+                )}
+                {activeView === "table" && (
+                  <button
+                    onClick={handleDownloadTable}
+                    className="flex items-center space-x-1 px-4 py-2 rounded-lg text-sm font-medium bg-green-600 text-white hover:bg-green-700 transition-colors"
+                  >
+                    <Download className="h-4 w-4" />
+                    <span>Download Table</span>
+                  </button>
+                )}
+              </>
+            )}
           </div>
         </div>
 
         {/* Conditional Rendering based on activeView */}
         {activeView === "graph" && (
-          <div className="bg-slate-50 rounded-lg p-6 pt-4 pb-4">
+          <div
+            ref={chartContainerRef}
+            className="bg-slate-50 rounded-lg p-6 pt-4 pb-4"
+          >
             {renderChartContent()}
           </div>
         )}
@@ -670,7 +730,7 @@ const DynamicChartBuilder: React.FC<DynamicChartBuilderProps> = ({
             yAxisColumns={yAxisColumns}
             groupByColumn={groupByColumn}
             aggregationType={aggregationType}
-            valueFormatter={formatNumericValue} // Using the updated formatter here
+            valueFormatter={formatNumericValue}
           />
         )}
 
