@@ -52,7 +52,7 @@ const ChartDropZone: React.FC<ChartDropZoneProps> = ({
     >
       {selectedColumns.length > 0 ? (
         // Added max-h-48 and overflow-auto here to make the content scrollable
-        <div className="w-full space-y-2 max-h-48 overflow-auto p-1 -m-1">
+        <div className="w-full space-y-2 max-h-32 overflow-auto p-1 -m-1">
           {selectedColumns.map((column, index) => (
             <div
               key={`${column.key}-${index}`}
