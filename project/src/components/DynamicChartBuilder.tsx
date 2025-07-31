@@ -213,6 +213,14 @@ const DynamicChartBuilder: React.FC<DynamicChartBuilderProps> = ({
     "#84CC16",
   ];
 
+  // Function to format Y-axis ticks
+  const formatYAxisTick = (value: number) => {
+    if (aggregationType === "AVG" && typeof value === "number") {
+      return value.toFixed(2);
+    }
+    return value;
+  };
+
   const renderChartContent = () => {
     if (loading) {
       return (
@@ -262,7 +270,8 @@ const DynamicChartBuilder: React.FC<DynamicChartBuilderProps> = ({
             <BarChart {...commonProps}>
               <CartesianGrid strokeDasharray="3 3" />
               <XAxis dataKey="name" />
-              <YAxis />
+              <YAxis tickFormatter={formatYAxisTick} />{" "}
+              {/* Added tickFormatter */}
               <Tooltip />
               <Legend />
               {yAxisColumns.map((column, index) => (
@@ -289,7 +298,8 @@ const DynamicChartBuilder: React.FC<DynamicChartBuilderProps> = ({
             <LineChart {...commonProps}>
               <CartesianGrid strokeDasharray="3 3" />
               <XAxis dataKey="name" />
-              <YAxis />
+              <YAxis tickFormatter={formatYAxisTick} />{" "}
+              {/* Added tickFormatter */}
               <Tooltip />
               <Legend />
               {yAxisColumns.map((column, index) => (
@@ -317,7 +327,8 @@ const DynamicChartBuilder: React.FC<DynamicChartBuilderProps> = ({
             <AreaChart {...commonProps}>
               <CartesianGrid strokeDasharray="3 3" />
               <XAxis dataKey="name" />
-              <YAxis />
+              <YAxis tickFormatter={formatYAxisTick} />{" "}
+              {/* Added tickFormatter */}
               <Tooltip />
               <Legend />
               {yAxisColumns.map((column, index) => (
@@ -346,7 +357,8 @@ const DynamicChartBuilder: React.FC<DynamicChartBuilderProps> = ({
             <ComposedChart {...commonProps}>
               <CartesianGrid strokeDasharray="3 3" />
               <XAxis dataKey="name" />
-              <YAxis />
+              <YAxis tickFormatter={formatYAxisTick} />{" "}
+              {/* Added tickFormatter */}
               <Tooltip />
               <Legend />
               {yAxisColumns.map((column, index) =>
@@ -514,7 +526,7 @@ const DynamicChartBuilder: React.FC<DynamicChartBuilderProps> = ({
 
         {/* Control row: Graph Type, Stacked Option, Aggregation Type (left) and View Buttons (right) */}
         <div className="flex flex-wrap items-center justify-between gap-4 mb-1">
-          {/* Left-aligned group: Graph Type, Stacked Option, Aggregation Type */}
+          {/* Left-aligned group: Graph Type, Stacked Option */}
           {activeView === "graph" && ( // Conditionally render this entire div
             <div className="flex flex-wrap items-center gap-4">
               {/* Graph Type Selector */}
@@ -575,28 +587,28 @@ const DynamicChartBuilder: React.FC<DynamicChartBuilderProps> = ({
                     </label>
                   </div>
                 )}
-
-              {/* Aggregation Type */}
-              <div>
-                <label className="block text-sm font-medium text-slate-700 mb-3">
-                  Aggregation Type (for numeric columns)
-                </label>
-                <select
-                  value={aggregationType}
-                  onChange={(e) =>
-                    setAggregationType(e.target.value as typeof aggregationType)
-                  }
-                  className="w-full px-3 py-2 border border-slate-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
-                >
-                  {aggregationOptions.map(({ value, label }) => (
-                    <option key={value} value={value}>
-                      {label}
-                    </option>
-                  ))}
-                </select>
-              </div>
             </div>
           )}
+
+          {/* Aggregation Type - Moved outside the activeView === "graph" conditional */}
+          <div>
+            <label className="block text-sm font-medium text-slate-700 mb-3">
+              Aggregation Type (for numeric columns)
+            </label>
+            <select
+              value={aggregationType}
+              onChange={(e) =>
+                setAggregationType(e.target.value as typeof aggregationType)
+              }
+              className="w-full px-3 py-2 border border-slate-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+            >
+              {aggregationOptions.map(({ value, label }) => (
+                <option key={value} value={value}>
+                  {label}
+                </option>
+              ))}
+            </select>
+          </div>
 
           {/* Right-aligned group: View Selection Buttons */}
           <div className="flex space-x-2 ml-auto">
