@@ -137,10 +137,11 @@ const DynamicChartBuilder: React.FC<DynamicChartBuilderProps> = ({
     selectParts.push(`${xAxisColumn.key} AS name`);
     groupByParts.push(xAxisColumn.key);
 
-    if (groupByColumn) {
+    if (groupByColumn && groupByColumn.key !== xAxisColumn.key) {
       selectParts.push(groupByColumn.key);
       groupByParts.push(groupByColumn.key);
     }
+
 
     yAxisColumns.forEach((col) => {
       const colType = normalizeType(col.type);
