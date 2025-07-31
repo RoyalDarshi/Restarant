@@ -171,11 +171,14 @@ const DynamicChartBuilder: React.FC<DynamicChartBuilderProps> = ({
     constructSqlQuery,
   ]);
 
-
-const handleChartTypeClick =(e)=>{
-    setChartType(e.target.value)
-    setShowChartOptions(false)
-}
+  // FIX STARTS HERE
+  const handleChartTypeClick = (
+    type: "bar" | "line" | "pie" | "area" | "composed"
+  ) => {
+    setChartType(type);
+    setShowChartOptions(false);
+  };
+  // FIX ENDS HERE
 
   const handleDrop = (column: DatabaseColumn, axis: "x" | "y" | "group") => {
     if (axis === "x") {
@@ -287,7 +290,9 @@ const handleChartTypeClick =(e)=>{
             <RefreshCw className="h-10 w-10 animate-spin text-blue-500" />
             <div className="absolute inset-0 bg-blue-100 rounded-full animate-ping opacity-20"></div>
           </div>
-          <span className="mt-4 text-slate-600 text-sm font-medium">Generating visualization...</span>
+          <span className="mt-4 text-slate-600 text-sm font-medium">
+            Generating visualization...
+          </span>
         </div>
       );
     }
@@ -296,12 +301,23 @@ const handleChartTypeClick =(e)=>{
       return (
         <div className="h-96 flex flex-col items-center justify-center bg-red-50 rounded-lg">
           <div className="bg-red-100 p-4 rounded-full mb-4">
-            <svg xmlns="http://www.w3.org/2000/svg" className="h-10 w-10 text-red-500" viewBox="0 0 20 20" fill="currentColor">
-              <path fillRule="evenodd" d="M18 10a8 8 0 11-16 0 8 8 0 0116 0zm-7 4a1 1 0 11-2 0 1 1 0 012 0zm-1-9a1 1 0 00-1 1v4a1 1 0 102 0V6a1 1 0 00-1-1z" clipRule="evenodd" />
+            <svg
+              xmlns="http://www.w3.org/2000/svg"
+              className="h-10 w-10 text-red-500"
+              viewBox="0 0 20 20"
+              fill="currentColor"
+            >
+              <path
+                fillRule="evenodd"
+                d="M18 10a8 8 0 11-16 0 8 8 0 0116 0zm-7 4a1 1 0 11-2 0 1 1 0 012 0zm-1-9a1 1 0 00-1 1v4a1 1 0 102 0V6a1 1 0 00-1-1z"
+                clipRule="evenodd"
+              />
             </svg>
           </div>
           <p className="font-medium text-red-700">Chart generation failed</p>
-          <p className="text-sm mt-1 text-red-600 max-w-md text-center">{error}</p>
+          <p className="text-sm mt-1 text-red-600 max-w-md text-center">
+            {error}
+          </p>
         </div>
       );
     }
@@ -315,7 +331,9 @@ const handleChartTypeClick =(e)=>{
                 <BarChart3 className="h-8 w-8 text-white" />
               </div>
             </div>
-            <h3 className="text-lg font-semibold text-center text-slate-800">Build Your Visualization</h3>
+            <h3 className="text-lg font-semibold text-center text-slate-800">
+              Build Your Visualization
+            </h3>
             <p className="text-slate-600 text-center mt-2 max-w-md">
               Configure chart settings by dragging columns to the X and Y axes
             </p>
@@ -326,7 +344,9 @@ const handleChartTypeClick =(e)=>{
               </div>
               <div className="bg-indigo-100 text-indigo-800 px-3 py-2 rounded-lg text-sm flex items-center">
                 <Layers className="h-4 w-4 mr-2" />
-                <span>Y-Axis: {yAxisColumns.length > 0 ? "Selected" : "Required"}</span>
+                <span>
+                  Y-Axis: {yAxisColumns.length > 0 ? "Selected" : "Required"}
+                </span>
               </div>
             </div>
           </div>
@@ -349,13 +369,13 @@ const handleChartTypeClick =(e)=>{
               <CartesianGrid strokeDasharray="3 3" stroke="#f0f0f0" />
               <XAxis dataKey="name" stroke="#6b7280" />
               <YAxis tickFormatter={formatNumericValue} stroke="#6b7280" />
-              <Tooltip 
-                formatter={(value: any) => formatNumericValue(value)} 
-                contentStyle={{ 
-                  background: 'rgba(255, 255, 255, 0.95)', 
-                  borderRadius: '8px',
-                  border: '1px solid #e5e7eb',
-                  boxShadow: '0 4px 12px rgba(0,0,0,0.1)'
+              <Tooltip
+                formatter={(value: any) => formatNumericValue(value)}
+                contentStyle={{
+                  background: "rgba(255, 255, 255, 0.95)",
+                  borderRadius: "8px",
+                  border: "1px solid #e5e7eb",
+                  boxShadow: "0 4px 12px rgba(0,0,0,0.1)",
                 }}
               />
               <Legend />
@@ -370,7 +390,7 @@ const handleChartTypeClick =(e)=>{
                       : column.label
                   }
                   {...(stacked ? { stackId: "a" } : {})}
-                //   radius={[4, 4, 0, 0]}
+                  //   radius={[4, 4, 0, 0]}
                 />
               ))}
             </BarChart>
@@ -384,13 +404,13 @@ const handleChartTypeClick =(e)=>{
               <CartesianGrid strokeDasharray="3 3" stroke="#f0f0f0" />
               <XAxis dataKey="name" stroke="#6b7280" />
               <YAxis tickFormatter={formatNumericValue} stroke="#6b7280" />
-              <Tooltip 
-                formatter={(value: any) => formatNumericValue(value)} 
-                contentStyle={{ 
-                  background: 'rgba(255, 255, 255, 0.95)', 
-                  borderRadius: '8px',
-                  border: '1px solid #e5e7eb',
-                  boxShadow: '0 4px 12px rgba(0,0,0,0.1)'
+              <Tooltip
+                formatter={(value: any) => formatNumericValue(value)}
+                contentStyle={{
+                  background: "rgba(255, 255, 255, 0.95)",
+                  borderRadius: "8px",
+                  border: "1px solid #e5e7eb",
+                  boxShadow: "0 4px 12px rgba(0,0,0,0.1)",
                 }}
               />
               <Legend />
@@ -421,13 +441,13 @@ const handleChartTypeClick =(e)=>{
               <CartesianGrid strokeDasharray="3 3" stroke="#f0f0f0" />
               <XAxis dataKey="name" stroke="#6b7280" />
               <YAxis tickFormatter={formatNumericValue} stroke="#6b7280" />
-              <Tooltip 
-                formatter={(value: any) => formatNumericValue(value)} 
-                contentStyle={{ 
-                  background: 'rgba(255, 255, 255, 0.95)', 
-                  borderRadius: '8px',
-                  border: '1px solid #e5e7eb',
-                  boxShadow: '0 4px 12px rgba(0,0,0,0.1)'
+              <Tooltip
+                formatter={(value: any) => formatNumericValue(value)}
+                contentStyle={{
+                  background: "rgba(255, 255, 255, 0.95)",
+                  borderRadius: "8px",
+                  border: "1px solid #e5e7eb",
+                  boxShadow: "0 4px 12px rgba(0,0,0,0.1)",
                 }}
               />
               <Legend />
@@ -457,13 +477,13 @@ const handleChartTypeClick =(e)=>{
               <CartesianGrid strokeDasharray="3 3" stroke="#f0f0f0" />
               <XAxis dataKey="name" stroke="#6b7280" />
               <YAxis tickFormatter={formatNumericValue} stroke="#6b7280" />
-              <Tooltip 
-                formatter={(value: any) => formatNumericValue(value)} 
-                contentStyle={{ 
-                  background: 'rgba(255, 255, 255, 0.95)', 
-                  borderRadius: '8px',
-                  border: '1px solid #e5e7eb',
-                  boxShadow: '0 4px 12px rgba(0,0,0,0.1)'
+              <Tooltip
+                formatter={(value: any) => formatNumericValue(value)}
+                contentStyle={{
+                  background: "rgba(255, 255, 255, 0.95)",
+                  borderRadius: "8px",
+                  border: "1px solid #e5e7eb",
+                  boxShadow: "0 4px 12px rgba(0,0,0,0.1)",
                 }}
               />
               <Legend />
@@ -528,13 +548,13 @@ const handleChartTypeClick =(e)=>{
                   />
                 ))}
               </Pie>
-              <Tooltip 
-                formatter={(value: any) => formatNumericValue(value)} 
-                contentStyle={{ 
-                  background: 'rgba(255, 255, 255, 0.95)', 
-                  borderRadius: '8px',
-                  border: '1px solid #e5e7eb',
-                  boxShadow: '0 4px 12px rgba(0,0,0,0.1)'
+              <Tooltip
+                formatter={(value: any) => formatNumericValue(value)}
+                contentStyle={{
+                  background: "rgba(255, 255, 255, 0.95)",
+                  borderRadius: "8px",
+                  border: "1px solid #e5e7eb",
+                  boxShadow: "0 4px 12px rgba(0,0,0,0.1)",
                 }}
               />
               <Legend />
@@ -579,8 +599,12 @@ const handleChartTypeClick =(e)=>{
           <div className="inline-flex items-center justify-center bg-gradient-to-r from-blue-500 to-indigo-600 p-3 rounded-full mb-4">
             <Database className="h-8 w-8 text-white" />
           </div>
-          <p className="text-lg font-medium">Select a table to start building charts</p>
-          <p className="text-sm mt-2 max-w-md mx-auto">Connect your data source and choose a table to visualize your data</p>
+          <p className="text-lg font-medium">
+            Select a table to start building charts
+          </p>
+          <p className="text-sm mt-2 max-w-md mx-auto">
+            Connect your data source and choose a table to visualize your data
+          </p>
         </div>
       </div>
     );
@@ -635,7 +659,9 @@ const handleChartTypeClick =(e)=>{
             <label className="block text-sm font-medium text-slate-700 mb-2 flex items-center">
               <span className="bg-indigo-500 w-2 h-2 rounded-full mr-2"></span>
               Y-Axis (Values)
-              <span className="ml-auto text-xs text-slate-500">Multiple Supported</span>
+              <span className="ml-auto text-xs text-slate-500">
+                Multiple Supported
+              </span>
             </label>
             <ChartDropZone
               onDrop={handleDrop}
@@ -686,7 +712,7 @@ const handleChartTypeClick =(e)=>{
                       {chartTypeOptions.map(({ type, label, icon: Icon }) => (
                         <button
                           key={type}
-                          onClick={handleChartTypeClick}
+                          onClick={() => handleChartTypeClick(type)} // <--- Corrected onClick
                           className={`flex flex-col items-center justify-center p-2 rounded-lg text-sm font-medium transition-colors ${
                             chartType === type
                               ? "bg-blue-100 text-blue-700 border border-blue-300"
@@ -737,7 +763,9 @@ const handleChartTypeClick =(e)=>{
 
             <div className="relative">
               <button
-                onClick={() => setShowAggregationOptions(!showAggregationOptions)}
+                onClick={() =>
+                  setShowAggregationOptions(!showAggregationOptions)
+                }
                 className="flex items-center px-4 py-2 bg-white border border-slate-300 rounded-lg text-slate-700 hover:bg-slate-50 transition-colors"
               >
                 <Layers className="h-4 w-4 mr-2 text-indigo-500" />
