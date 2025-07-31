@@ -213,12 +213,10 @@ const DynamicChartBuilder: React.FC<DynamicChartBuilderProps> = ({
     "#84CC16",
   ];
 
-  // Function to format Y-axis ticks
-  const formatYAxisTick = (value: number) => {
-    if (aggregationType === "AVG" && typeof value === "number") {
-      return value.toFixed(2);
-    }
-    return value;
+  // Function to format numeric values for both Y-axis ticks and table data
+  const formatNumericValue = (value: any) => {
+    const num = parseFloat(value); // Attempt to parse the value to a float
+    return !isNaN(num) ? num.toFixed(2) : value; // If it's a valid number, format it; otherwise, return as is
   };
 
   const renderChartContent = () => {
@@ -270,9 +268,11 @@ const DynamicChartBuilder: React.FC<DynamicChartBuilderProps> = ({
             <BarChart {...commonProps}>
               <CartesianGrid strokeDasharray="3 3" />
               <XAxis dataKey="name" />
-              <YAxis tickFormatter={formatYAxisTick} />{" "}
-              {/* Added tickFormatter */}
-              <Tooltip />
+              <YAxis tickFormatter={formatNumericValue} />{" "}
+              {/* Using formatNumericValue */}
+              <Tooltip
+                formatter={(value: any) => formatNumericValue(value)} // Using formatNumericValue
+              />
               <Legend />
               {yAxisColumns.map((column, index) => (
                 <Bar
@@ -298,9 +298,11 @@ const DynamicChartBuilder: React.FC<DynamicChartBuilderProps> = ({
             <LineChart {...commonProps}>
               <CartesianGrid strokeDasharray="3 3" />
               <XAxis dataKey="name" />
-              <YAxis tickFormatter={formatYAxisTick} />{" "}
-              {/* Added tickFormatter */}
-              <Tooltip />
+              <YAxis tickFormatter={formatNumericValue} />{" "}
+              {/* Using formatNumericValue */}
+              <Tooltip
+                formatter={(value: any) => formatNumericValue(value)} // Using formatNumericValue
+              />
               <Legend />
               {yAxisColumns.map((column, index) => (
                 <Line
@@ -327,9 +329,11 @@ const DynamicChartBuilder: React.FC<DynamicChartBuilderProps> = ({
             <AreaChart {...commonProps}>
               <CartesianGrid strokeDasharray="3 3" />
               <XAxis dataKey="name" />
-              <YAxis tickFormatter={formatYAxisTick} />{" "}
-              {/* Added tickFormatter */}
-              <Tooltip />
+              <YAxis tickFormatter={formatNumericValue} />{" "}
+              {/* Using formatNumericValue */}
+              <Tooltip
+                formatter={(value: any) => formatNumericValue(value)} // Using formatNumericValue
+              />
               <Legend />
               {yAxisColumns.map((column, index) => (
                 <Area
@@ -357,9 +361,11 @@ const DynamicChartBuilder: React.FC<DynamicChartBuilderProps> = ({
             <ComposedChart {...commonProps}>
               <CartesianGrid strokeDasharray="3 3" />
               <XAxis dataKey="name" />
-              <YAxis tickFormatter={formatYAxisTick} />{" "}
-              {/* Added tickFormatter */}
-              <Tooltip />
+              <YAxis tickFormatter={formatNumericValue} />{" "}
+              {/* Using formatNumericValue */}
+              <Tooltip
+                formatter={(value: any) => formatNumericValue(value)} // Using formatNumericValue
+              />
               <Legend />
               {yAxisColumns.map((column, index) =>
                 index % 2 === 0 ? (
@@ -409,7 +415,7 @@ const DynamicChartBuilder: React.FC<DynamicChartBuilderProps> = ({
                 cy="50%"
                 labelLine={false}
                 label={({ name, percent }) =>
-                  `${name} ${(percent * 100).toFixed(0)}%`
+                  `${name} ${(percent * 100).toFixed(2)}%`
                 }
                 outerRadius={120}
                 fill="#8884d8"
@@ -422,7 +428,10 @@ const DynamicChartBuilder: React.FC<DynamicChartBuilderProps> = ({
                   />
                 ))}
               </Pie>
-              <Tooltip />
+              <Tooltip
+                formatter={(value: any) => formatNumericValue(value)} // Using formatNumericValue
+              />
+
               <Legend />
             </PieChart>
           </ResponsiveContainer>
@@ -661,6 +670,7 @@ const DynamicChartBuilder: React.FC<DynamicChartBuilderProps> = ({
             yAxisColumns={yAxisColumns}
             groupByColumn={groupByColumn}
             aggregationType={aggregationType}
+            valueFormatter={formatNumericValue} // Using the updated formatter here
           />
         )}
 
