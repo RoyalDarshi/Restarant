@@ -1,5 +1,6 @@
 import React from 'react';
-import { DatabaseColumn } from '../services/api'; // Assuming api.ts is in '../services'
+import { DatabaseColumn } from "../services/api";
+import { Table, Activity } from "lucide-react";
 
 interface ChartDataTableProps {
   chartData: any[];
@@ -7,7 +8,7 @@ interface ChartDataTableProps {
   yAxisColumns: DatabaseColumn[];
   groupByColumn: DatabaseColumn | null;
   aggregationType: "SUM" | "AVG" | "COUNT" | "MIN" | "MAX";
-  valueFormatter?: (value: any) => string | number; // Add this new prop
+  valueFormatter?: (value: any) => string | number;
 }
 
 const ChartDataTable: React.FC<ChartDataTableProps> = ({
@@ -16,9 +17,8 @@ const ChartDataTable: React.FC<ChartDataTableProps> = ({
   yAxisColumns,
   groupByColumn,
   aggregationType,
-  valueFormatter, // Destructure the new prop
+  valueFormatter,
 }) => {
-  // Normalize column type to simplify type checking for aggregation logic
   const normalizeType = (type: string): "string" | "number" => {
     const lower = type.toLowerCase();
     if (lower.includes("char") || lower === "text") return "string";
@@ -30,25 +30,32 @@ const ChartDataTable: React.FC<ChartDataTableProps> = ({
       lower === "number"
     )
       return "number";
-    return "string"; // fallback for unknown types
+    return "string";
   };
 
   if (chartData.length === 0 && !xAxisColumn && yAxisColumns.length === 0) {
     return (
-      <p className="text-slate-500 text-center py-8">
-        Drag and drop columns to generate data for the table.
-      </p>
+      <div className="mt-4 p-4 bg-gradient-to-br from-blue-50 to-indigo-50 rounded-xl border border-slate-200 flex flex-col items-center justify-center h-96">
+        <div className="bg-white p-5 rounded-full mb-4 shadow-sm">
+          <Activity className="h-10 w-10 text-blue-500" />
+        </div>
+        <h3 className="text-lg font-semibold text-slate-800">
+          No Data Available
+        </h3>
+        <p className="text-slate-600 text-center max-w-md mt-2">
+          Drag and drop columns to generate data for the table
+        </p>
+      </div>
     );
   }
 
-  // Determine all columns to display in the table, including their numeric status
   const tableColumns: { key: string; label: string; isNumeric: boolean }[] = [];
 
   if (xAxisColumn) {
     tableColumns.push({
-      key: "name", // 'name' is the alias used in the aggregation query for xAxis
+      key: "name",
       label: xAxisColumn.label,
-      isNumeric: false, // X-axis is typically categorical
+      isNumeric: false,
     });
   }
 
@@ -61,12 +68,11 @@ const ChartDataTable: React.FC<ChartDataTableProps> = ({
   }
 
   yAxisColumns.forEach((col) => {
-    // Determine if the column is numeric based on its normalized type
     const isNumeric = normalizeType(col.type) === "number";
     tableColumns.push({
       key: col.key,
       label: `${col.label} (${
-        isNumeric && aggregationType !== "COUNT" // Don't show aggregation type if string column is counted.
+        isNumeric && aggregationType !== "COUNT"
           ? aggregationType
           : normalizeType(col.type) === "string"
           ? "COUNT"
@@ -77,47 +83,76 @@ const ChartDataTable: React.FC<ChartDataTableProps> = ({
   });
 
   return (
-    <div className="mt-4 p-4 bg-white rounded-lg border border-slate-200 overflow-x-auto max-h-96 overflow-y-auto">
-      <h3 className="text-md font-semibold mb-2 text-slate-900">
-        Chart Data Table
-      </h3>
+    <div className="mt-4 p-4 bg-white rounded-xl border border-slate-200 overflow-x-auto max-h-96 overflow-y-auto shadow-sm">
+      <div className="flex items-center justify-between mb-4">
+        <h3 className="text-lg font-semibold text-slate-800 flex items-center">
+          <Table className="h-5 w-5 mr-2 text-blue-500" />
+          Chart Data Table
+        </h3>
+        <div className="text-sm text-slate-500">{chartData.length} rows</div>
+      </div>
+
       {chartData.length > 0 ? (
-        <table className="min-w-full divide-y divide-slate-300">
-          <thead className="bg-slate-50">
-            <tr>
-              {tableColumns.map((col) => (
-                <th
-                  key={col.key}
-                  scope="col"
-                  className="px-6 py-3 text-left text-xs font-medium text-slate-500 uppercase tracking-wider"
-                >
-                  {col.label}
-                </th>
-              ))}
-            </tr>
-          </thead>
-          <tbody className="bg-white divide-y divide-slate-200">
-            {chartData.map((row, rowIndex) => (
-              <tr key={rowIndex}>
-                {tableColumns.map((col) => (
-                  <td
-                    key={`${rowIndex}-${col.key}`}
-                    className="px-6 py-4 whitespace-nowrap text-sm font-medium text-slate-900"
+        <div className="relative overflow-hidden rounded-lg border border-slate-200">
+          <table className="min-w-full divide-y divide-slate-200">
+            <thead className="bg-gradient-to-r from-blue-50 to-indigo-50">
+              <tr>
+                {tableColumns.map((col, index) => (
+                  <th
+                    key={col.key}
+                    scope="col"
+                    className={`px-4 py-3 text-left text-xs font-semibold text-slate-700 uppercase tracking-wider ${
+                      index === 0 ? "pl-6" : ""
+                    }`}
                   >
-                    {/* Apply formatter if it's a numeric column and formatter is provided */}
-                    {col.isNumeric && valueFormatter
-                      ? valueFormatter(row[col.key])
-                      : row[col.key]}
-                  </td>
+                    <div className="flex items-center">
+                      <span>{col.label}</span>
+                    </div>
+                  </th>
                 ))}
               </tr>
-            ))}
-          </tbody>
-        </table>
+            </thead>
+            <tbody className="divide-y divide-slate-200">
+              {chartData.map((row, rowIndex) => (
+                <tr
+                  key={rowIndex}
+                  className={
+                    rowIndex % 2 === 0
+                      ? "bg-white hover:bg-blue-50"
+                      : "bg-slate-50 hover:bg-blue-50"
+                  }
+                >
+                  {tableColumns.map((col, colIndex) => (
+                    <td
+                      key={`${rowIndex}-${col.key}`}
+                      className={`px-4 py-3 text-sm ${
+                        col.isNumeric
+                          ? "text-right font-medium text-slate-900"
+                          : "text-slate-700"
+                      } ${colIndex === 0 ? "pl-6 font-medium" : ""}`}
+                    >
+                      {col.isNumeric && valueFormatter
+                        ? valueFormatter(row[col.key])
+                        : row[col.key]}
+                    </td>
+                  ))}
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        </div>
       ) : (
-        <p className="text-slate-500 text-center py-8">
-          No data to display. Configure your chart axes.
-        </p>
+        <div className="flex flex-col items-center justify-center py-12 bg-gradient-to-br from-blue-50 to-indigo-50 rounded-lg border border-dashed border-slate-300">
+          <div className="bg-white p-3 rounded-full mb-3">
+            <Activity className="h-8 w-8 text-blue-500" />
+          </div>
+          <h3 className="text-lg font-medium text-slate-800">
+            No Data Available
+          </h3>
+          <p className="text-slate-600 text-sm mt-1">
+            Configure your chart axes to display data
+          </p>
+        </div>
       )}
     </div>
   );
