@@ -171,14 +171,12 @@ const DynamicChartBuilder: React.FC<DynamicChartBuilderProps> = ({
     constructSqlQuery,
   ]);
 
-  // FIX STARTS HERE
   const handleChartTypeClick = (
     type: "bar" | "line" | "pie" | "area" | "composed"
   ) => {
     setChartType(type);
     setShowChartOptions(false);
   };
-  // FIX ENDS HERE
 
   const handleDrop = (column: DatabaseColumn, axis: "x" | "y" | "group") => {
     if (axis === "x") {
@@ -703,7 +701,10 @@ const DynamicChartBuilder: React.FC<DynamicChartBuilderProps> = ({
                 )}
               </button>
               {showChartOptions && (
-                <div className="absolute z-10 mt-2 bg-white border border-slate-200 rounded-lg shadow-lg p-4 w-64">
+                <div
+                  className="absolute z-10 mt-2 bg-white border border-slate-200 rounded-lg shadow-lg p-4 w-64"
+                  onMouseLeave={() => setShowChartOptions(false)} // Added onMouseLeave
+                >
                   <div className="mb-4">
                     <label className="block text-sm font-medium text-slate-700 mb-2">
                       Chart Type
@@ -712,7 +713,7 @@ const DynamicChartBuilder: React.FC<DynamicChartBuilderProps> = ({
                       {chartTypeOptions.map(({ type, label, icon: Icon }) => (
                         <button
                           key={type}
-                          onClick={() => handleChartTypeClick(type)} // <--- Corrected onClick
+                          onClick={() => handleChartTypeClick(type)}
                           className={`flex flex-col items-center justify-center p-2 rounded-lg text-sm font-medium transition-colors ${
                             chartType === type
                               ? "bg-blue-100 text-blue-700 border border-blue-300"
