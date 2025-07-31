@@ -76,6 +76,41 @@ const DynamicChartBuilder: React.FC<DynamicChartBuilderProps> = ({
   const [showAggregationOptions, setShowAggregationOptions] = useState(false);
 
   const chartContainerRef = useRef<HTMLDivElement>(null);
+  // Refs for click-outside functionality
+  const chartOptionsRef = useRef<HTMLDivElement>(null);
+  const aggregationOptionsRef = useRef<HTMLDivElement>(null);
+
+  // Effect to handle clicks outside the chart options dropdown
+  useEffect(() => {
+    const handleClickOutside = (event: MouseEvent) => {
+      if (
+        chartOptionsRef.current &&
+        !chartOptionsRef.current.contains(event.target as Node)
+      ) {
+        setShowChartOptions(false);
+      }
+    };
+    document.addEventListener("mousedown", handleClickOutside);
+    return () => {
+      document.removeEventListener("mousedown", handleClickOutside);
+    };
+  }, [chartOptionsRef]);
+
+  // Effect to handle clicks outside the aggregation options dropdown
+  useEffect(() => {
+    const handleClickOutside = (event: MouseEvent) => {
+      if (
+        aggregationOptionsRef.current &&
+        !aggregationOptionsRef.current.contains(event.target as Node)
+      ) {
+        setShowAggregationOptions(false);
+      }
+    };
+    document.addEventListener("mousedown", handleClickOutside);
+    return () => {
+      document.removeEventListener("mousedown", handleClickOutside);
+    };
+  }, [aggregationOptionsRef]);
 
   const normalizeType = (type: string): "string" | "number" => {
     const lower = type.toLowerCase();
@@ -702,8 +737,8 @@ const DynamicChartBuilder: React.FC<DynamicChartBuilderProps> = ({
               </button>
               {showChartOptions && (
                 <div
+                  ref={chartOptionsRef} // Attach ref here
                   className="absolute z-10 mt-2 bg-white border border-slate-200 rounded-lg shadow-lg p-4 w-64"
-                  onMouseLeave={() => setShowChartOptions(false)} // Added onMouseLeave
                 >
                   <div className="mb-4">
                     <label className="block text-sm font-medium text-slate-700 mb-2">
@@ -774,7 +809,10 @@ const DynamicChartBuilder: React.FC<DynamicChartBuilderProps> = ({
                 <ChevronDown className="h-4 w-4 ml-2" />
               </button>
               {showAggregationOptions && (
-                <div className="absolute z-10 mt-2 bg-white border border-slate-200 rounded-lg shadow-lg p-2 w-48">
+                <div
+                  ref={aggregationOptionsRef} // Attach ref here
+                  className="absolute z-10 mt-2 bg-white border border-slate-200 rounded-lg shadow-lg p-2 w-48"
+                >
                   {aggregationOptions.map(({ value, label }) => (
                     <button
                       key={value}
