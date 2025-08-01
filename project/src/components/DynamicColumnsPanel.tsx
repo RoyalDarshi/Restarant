@@ -1,7 +1,13 @@
-import React, { useState } from 'react';
-import { DatabaseColumn } from '../services/api';
-import DraggableColumn from './DraggableColumn';
-import { Columns, Search, Database, ChevronDown, ChevronUp } from 'lucide-react';
+import React, { useState, useMemo } from "react"; // Import useMemo
+import { DatabaseColumn } from "../services/api";
+import DraggableColumn from "./DraggableColumn";
+import {
+  Columns,
+  Search,
+  Database,
+  ChevronDown,
+  ChevronUp,
+} from "lucide-react";
 
 interface DynamicColumnsPanelProps {
   tableName: string | null;
@@ -16,17 +22,24 @@ const DynamicColumnsPanel: React.FC<DynamicColumnsPanelProps> = ({
   tables,
   onTableChange,
 }) => {
-  const [searchTerm, setSearchTerm] = useState('');
+  const [searchTerm, setSearchTerm] = useState("");
   const [isExpanded, setIsExpanded] = useState(true);
 
-  const filteredColumns = columns.filter(column =>
-    column.key.toLowerCase().includes(searchTerm.toLowerCase()) ||
-    column.label.toLowerCase().includes(searchTerm.toLowerCase())
-  );
+  // Use useMemo to memoize the sorted and filtered columns
+  const sortedAndFilteredColumns = useMemo(() => {
+    const filtered = columns.filter(
+      (column) =>
+        column.key.toLowerCase().includes(searchTerm.toLowerCase()) ||
+        column.label.toLowerCase().includes(searchTerm.toLowerCase())
+    );
+
+    // Sort the filtered columns alphabetically by their label
+    return filtered.sort((a, b) => a.label.localeCompare(b.label));
+  }, [columns, searchTerm]); // Recalculate only when columns or searchTerm changes
 
   return (
     <div className="bg-white rounded-xl shadow-sm border border-slate-200 overflow-hidden">
-      <div 
+      <div
         className="p-4 border-b border-slate-200 bg-gradient-to-r from-blue-50 to-indigo-50 cursor-pointer"
         onClick={() => setIsExpanded(!isExpanded)}
       >
@@ -45,7 +58,7 @@ const DynamicColumnsPanel: React.FC<DynamicColumnsPanelProps> = ({
             <ChevronDown className="h-5 w-5 text-slate-500" />
           )}
         </div>
-        
+
         <p className="text-sm text-slate-600 mt-1 ml-11">
           Select a table and drag columns to build visualizations
         </p>
@@ -100,9 +113,9 @@ const DynamicColumnsPanel: React.FC<DynamicColumnsPanelProps> = ({
 
           <div className="overflow-y-auto max-h-[calc(100vh-350px)] p-2">
             {tableName ? (
-              filteredColumns.length > 0 ? (
+              sortedAndFilteredColumns.length > 0 ? (
                 <div className="space-y-2 p-2">
-                  {filteredColumns.map((column) => (
+                  {sortedAndFilteredColumns.map((column) => (
                     <DraggableColumn key={column.key} column={column} />
                   ))}
                 </div>
