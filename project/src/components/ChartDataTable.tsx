@@ -1,11 +1,12 @@
 import React, { useState, useMemo } from "react";
 import {
-  ChevronUpIcon,
-  ChevronDownIcon,
-  MagnifyingGlassIcon,
-  ArrowsUpDownIcon,
-  ChartBarIcon,
-} from "@heroicons/react/24/solid";
+  ChevronUp,
+  ChevronDown,
+  Search,
+  MoveVertical,
+  Table,
+} from "lucide-react";
+
 import { DatabaseColumn } from "../services/api";
 
 interface ChartDataTableProps {
@@ -196,9 +197,9 @@ const ChartDataTable: React.FC<ChartDataTableProps> = ({
 
   if (chartData.length === 0 && !xAxisColumn && yAxisColumns.length === 0) {
     return (
-      <div className="mt-4 p-8 bg-gradient-to-br from-blue-100 to-indigo-100 rounded-xl border-2 border-dashed border-indigo-200">
+      <div className="h-96 flex flex-col items-center justify-center bg-gradient-to-br from-blue-50 to-indigo-50 rounded-lg border border-dashed border-blue-200">
         <div className="text-center">
-          <ChartBarIcon className="mx-auto h-16 w-16 text-indigo-400" />
+          <Table className="mx-auto h-16 w-16 text-indigo-400" />
           <h3 className="mt-4 text-xl font-semibold text-indigo-900">
             Ready for Data Analysis
           </h3>
@@ -225,7 +226,7 @@ const ChartDataTable: React.FC<ChartDataTableProps> = ({
         <div className="flex flex-wrap items-center gap-4">
           {/* Search */}
           <div className="relative flex-1 min-w-64">
-            <MagnifyingGlassIcon className="absolute left-3 top-1/2 transform -translate-y-1/2 h-5 w-5 text-white/70" />
+            <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 h-5 w-5 text-white/70" />
             {/* Updated padding for the input field */}
             <input
               type="text"
@@ -309,12 +310,12 @@ const ChartDataTable: React.FC<ChartDataTableProps> = ({
                       <div className="flex flex-col ml-auto text-gray-400">
                         {sortConfig?.key === col.key ? (
                           sortConfig.direction === "asc" ? (
-                            <ChevronUpIcon className="h-4 w-4 text-current" />
+                            <ChevronUp className="h-4 w-4 text-current" />
                           ) : (
-                            <ChevronDownIcon className="h-4 w-4 text-current" />
+                            <ChevronDown className="h-4 w-4 text-current" />
                           )
                         ) : (
-                          <ArrowsUpDownIcon className="h-4 w-4 text-current opacity-50" />
+                          <MoveVertical className="h-4 w-4 text-current opacity-50" />
                         )}
                       </div>
                     </div>
