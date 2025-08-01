@@ -218,64 +218,57 @@ const ChartDataTable: React.FC<ChartDataTableProps> = ({
   const totalPages = Math.ceil(processedData.length / pageSize);
 
   return (
-    <div className="mt-4 bg-gradient-to-br from-slate-50 to-white rounded-2xl shadow-xl border border-slate-200 overflow-hidden">
+    <div className="mt-4 bg-gradient-to-br from-white to-slate-50 rounded-xl shadow-sm border border-slate-200 overflow-hidden">
       {/* Controls */}
-      {/* The requested gradient is applied here only */}
-      {/* Updated with the new class as requested by the user */}
-      <div className="bg-gradient-to-r from-blue-500 to-indigo-600 p-2 rounded-lg mr-3">
-        <div className="flex flex-wrap items-center gap-4">
-          {/* Search */}
-          <div className="relative flex-1 min-w-64">
-            <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 h-5 w-5 text-white/70" />
-            {/* Updated padding for the input field */}
-            <input
-              type="text"
-              placeholder="Search your data..."
-              value={searchTerm}
-              onChange={(e) => setSearchTerm(e.target.value)}
-              className="w-full pl-10 pr-3 py-2 bg-white/20 backdrop-blur-sm border border-white/30 rounded-xl text-white placeholder-white/70 focus:ring-2 focus:ring-white/50 focus:border-white/50 focus:bg-white/30 transition-all"
-            />
-          </div>
+      <div className="flex flex-wrap items-center gap-4 p-4 bg-gradient-to-r from-slate-100 to-gray-100 border-b border-gray-200">
+        {/* Search */}
+        <div className="relative flex-1 min-w-64">
+          <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 h-5 w-5 text-slate-400" />
+          <input
+            type="text"
+            placeholder="Search your data..."
+            value={searchTerm}
+            onChange={(e) => setSearchTerm(e.target.value)}
+            className="w-full pl-10 pr-3 py-2 bg-white border border-slate-300 rounded-lg text-slate-700 placeholder-slate-500 focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition-all"
+          />
+        </div>
 
-          {/* Page Size */}
-          {/* Updated padding for the select field */}
+        {/* Page Size */}
+        <select
+          value={pageSize}
+          onChange={(e) => setPageSize(Number(e.target.value))}
+          className="px-3 py-2 bg-white border border-slate-300 rounded-lg text-slate-700 focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition-all"
+        >
+          <option value={5} className="text-slate-700">
+            5 rows
+          </option>
+          <option value={10} className="text-slate-700">
+            10 rows
+          </option>
+          <option value={25} className="text-slate-700">
+            25 rows
+          </option>
+          <option value={50} className="text-slate-700">
+            50 rows
+          </option>
+        </select>
+
+        {/* Column Visibility */}
+        <div className="relative">
           <select
-            value={pageSize}
-            onChange={(e) => setPageSize(Number(e.target.value))}
-            className="px-3 py-2 bg-white/20 backdrop-blur-sm border border-white/30 rounded-xl text-white focus:ring-2 focus:ring-white/50 focus:bg-white/30 transition-all"
+            onChange={(e) => toggleColumnVisibility(e.target.value)}
+            className="px-3 py-2 bg-white border border-slate-300 rounded-lg text-slate-700 focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition-all"
+            value=""
           >
-            <option value={5} className="text-gray-800">
-              5 rows
+            <option value="" className="text-slate-700">
+              Show/Hide Columns
             </option>
-            <option value={10} className="text-gray-800">
-              10 rows
-            </option>
-            <option value={25} className="text-gray-800">
-              25 rows
-            </option>
-            <option value={50} className="text-gray-800">
-              50 rows
-            </option>
-          </select>
-
-          {/* Column Visibility */}
-          <div className="relative">
-            {/* Updated padding for the select field */}
-            <select
-              onChange={(e) => toggleColumnVisibility(e.target.value)}
-              className="px-3 py-2 bg-white/20 backdrop-blur-sm border border-white/30 rounded-xl text-white focus:ring-2 focus:ring-white/50 focus:bg-white/30 transition-all"
-              value=""
-            >
-              <option value="" className="text-gray-800">
-                Show/Hide Columns
+            {tableColumns.map((col) => (
+              <option key={col.key} value={col.key} className="text-slate-700">
+                {columnVisibility[col.key] ? "✓" : "○"} {col.label}
               </option>
-              {tableColumns.map((col) => (
-                <option key={col.key} value={col.key} className="text-gray-800">
-                  {columnVisibility[col.key] ? "✓" : "○"} {col.label}
-                </option>
-              ))}
-            </select>
-          </div>
+            ))}
+          </select>
         </div>
       </div>
 
@@ -284,12 +277,10 @@ const ChartDataTable: React.FC<ChartDataTableProps> = ({
         <div className="max-h-96 overflow-y-auto">
           <table className="min-w-full">
             <thead className="sticky top-0 z-10">
-              {/* Table header with a simple gray background */}
-              <tr className="bg-gray-100">
+              <tr className="bg-gradient-to-r from-slate-100 to-gray-100">
                 {/* Serial Number Header */}
-                <th className="px-4 py-4 border-r border-gray-200 bg-slate-100">
+                <th className="px-4 py-3 border-b border-gray-200">
                   <div className="flex items-center space-x-2">
-                    <div className="w-3 h-3 rounded-full bg-slate-400" />
                     <span className="text-sm font-bold text-slate-700 uppercase tracking-wider">
                       S.No
                     </span>
@@ -298,16 +289,12 @@ const ChartDataTable: React.FC<ChartDataTableProps> = ({
                 {visibleColumns.map((col) => (
                   <th
                     key={col.key}
-                    // Styling for the column headers, no gradient here
-                    className={`px-6 py-4 text-left text-sm font-bold uppercase tracking-wider cursor-pointer transition-all hover:bg-gray-200 border-r border-white/50 text-gray-700`}
+                    className="px-6 py-3 text-left text-sm font-bold uppercase tracking-wider cursor-pointer transition-colors hover:bg-slate-200 border-b border-gray-200 text-slate-700"
                     onClick={() => handleSort(col.key)}
                   >
                     <div className="flex items-center space-x-2">
-                      {/* Removed the color dot */}
-                      <span className="truncate font-semibold text-gray-700">
-                        {col.label}
-                      </span>
-                      <div className="flex flex-col ml-auto text-gray-400">
+                      <span className="truncate">{col.label}</span>
+                      <div className="flex flex-col ml-auto text-slate-400">
                         {sortConfig?.key === col.key ? (
                           sortConfig.direction === "asc" ? (
                             <ChevronUp className="h-4 w-4 text-current" />
@@ -323,28 +310,27 @@ const ChartDataTable: React.FC<ChartDataTableProps> = ({
                 ))}
               </tr>
             </thead>
-            <tbody className="divide-y divide-gray-100">
+            <tbody>
               {paginatedData.map((row, rowIndex) => (
                 <tr
                   key={rowIndex}
-                  className="transition-all hover:shadow-md hover:bg-gradient-to-r hover:from-gray-50 hover:to-slate-50"
+                  className={`${
+                    rowIndex % 2 === 0 ? "bg-white" : "bg-slate-50"
+                  } border-b border-gray-100 hover:bg-blue-50`}
                 >
                   {/* Serial Number Cell */}
-                  <td className="px-4 py-4 border-r border-gray-100 bg-slate-50">
-                    <div className="flex items-center justify-center">
-                      <span className="text-sm font-bold text-slate-600 bg-slate-200 px-3 py-1 rounded-full min-w-[2rem] text-center">
-                        {(currentPage - 1) * pageSize + rowIndex + 1}
-                      </span>
-                    </div>
+                  <td className="px-4 py-4 text-center">
+                    <span className="text-sm font-medium text-slate-600">
+                      {(currentPage - 1) * pageSize + rowIndex + 1}
+                    </span>
                   </td>
                   {visibleColumns.map((col) => (
                     <td
                       key={`${rowIndex}-${col.key}`}
-                      className={`px-6 py-4 text-sm border-r border-white/30 text-gray-900`}
+                      className={`px-6 py-4 text-sm text-slate-900`}
                       style={getCellStyle(row[col.key], col)}
                     >
                       <div className="flex items-center space-x-2">
-                        {/* Removed the color dot from here as well */}
                         <span
                           className={`${
                             col.isNumeric ? "font-bold" : "font-medium"
@@ -367,13 +353,13 @@ const ChartDataTable: React.FC<ChartDataTableProps> = ({
       {/* Footer with Pagination */}
       <div className="px-6 py-4 bg-gradient-to-r from-slate-100 to-gray-50 border-t border-gray-200">
         <div className="flex items-center justify-between">
-          <div className="text-sm font-medium text-gray-700">
+          <div className="text-sm font-medium text-slate-700">
             Showing{" "}
-            <span className="text-indigo-600 font-bold">
+            <span className="text-blue-600 font-bold">
               {(currentPage - 1) * pageSize + 1}
             </span>{" "}
             to{" "}
-            <span className="text-indigo-600 font-bold">
+            <span className="text-blue-600 font-bold">
               {Math.min(currentPage * pageSize, processedData.length)}
             </span>{" "}
             of{" "}
@@ -387,12 +373,12 @@ const ChartDataTable: React.FC<ChartDataTableProps> = ({
             <button
               onClick={() => setCurrentPage((prev) => Math.max(prev - 1, 1))}
               disabled={currentPage === 1}
-              className="px-4 py-2 text-sm font-medium bg-white border-2 border-indigo-200 text-indigo-600 rounded-xl hover:bg-indigo-50 hover:border-indigo-300 disabled:opacity-50 disabled:cursor-not-allowed transition-all shadow-sm"
+              className="px-4 py-2 text-sm font-medium bg-white border border-slate-300 text-slate-700 rounded-lg hover:bg-slate-100 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
             >
               Previous
             </button>
 
-            <span className="px-4 py-2 text-sm font-bold text-gray-700 bg-white rounded-xl shadow-sm border border-gray-200">
+            <span className="px-4 py-2 text-sm font-bold text-slate-700 bg-white rounded-lg shadow-sm border border-slate-200">
               Page {currentPage} of {totalPages}
             </span>
 
@@ -401,7 +387,7 @@ const ChartDataTable: React.FC<ChartDataTableProps> = ({
                 setCurrentPage((prev) => Math.min(prev + 1, totalPages))
               }
               disabled={currentPage === totalPages}
-              className="px-4 py-2 text-sm font-medium bg-white border-2 border-indigo-200 text-indigo-600 rounded-xl hover:bg-indigo-50 hover:border-indigo-300 disabled:opacity-50 disabled:cursor-not-allowed transition-all shadow-sm"
+              className="px-4 py-2 text-sm font-medium bg-white border border-slate-300 text-slate-700 rounded-lg hover:bg-slate-100 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
             >
               Next
             </button>
