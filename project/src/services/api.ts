@@ -1,4 +1,4 @@
-const API_BASE_URL = "http://192.168.29.231:3001/api";
+const API_BASE_URL = "http://192.168.29.120:3001/api";
 
 export interface ApiResponse<T> {
   success: boolean;
@@ -35,7 +35,7 @@ export interface AggregationRequest {
   xAxis: string;
   yAxes: string[];
   groupBy?: string;
-  aggregationType?: "SUM" | "AVG" | "COUNT" | "MIN" | "MAX";
+  aggregationTypes: Array<"SUM" | "AVG" | "COUNT" | "MIN" | "MAX">; // ✅ fixed
   filters?: Array<{
     column: string;
     operator: string;
