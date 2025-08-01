@@ -15,7 +15,7 @@ router.post("/aggregate", async (req, res) => {
       filters = [],
     } = req.body;
 
-    // Validate inputs
+    // Basic validation
     if (
       !tableName ||
       !xAxis ||
@@ -30,50 +30,48 @@ router.post("/aggregate", async (req, res) => {
       });
     }
 
-    const quote = (s) => `"${s}"`;
-    const selectParts = [`${quote(xAxis)} AS name`];
-    const groupByParts = [quote(xAxis)];
+    const quoted = (col) => `"${col}"`;
+
+    // Build SELECT clause
+    const selectParts = [`${quoted(xAxis)} AS name`];
+    const groupByParts = [quoted(xAxis)];
 
     if (groupBy && groupBy !== xAxis) {
-      selectParts.push(`${quote(groupBy)} AS group_by`);
-      groupByParts.push(quote(groupBy));
+      selectParts.push(`${quoted(groupBy)} AS group_by`);
+      groupByParts.push(quoted(groupBy));
     }
 
     yAxes.forEach((col, idx) => {
       const agg = aggregationTypes[idx];
-      selectParts.push(`${agg}(${quote(col)}) AS ${quote(col)}`);
+      selectParts.push(`${agg}(${quoted(col)}) AS ${quoted(col)}`);
     });
 
-    let query = `SELECT ${selectParts.join(", ")} FROM ${quote(tableName)}`;
+    // Base query
+    let query = `SELECT ${selectParts.join(", ")} FROM ${quoted(tableName)}`;
     const queryParams = [];
 
+    // WHERE clause (filters)
     if (filters.length > 0) {
-      const whereClauses = filters.map((filter) => {
-        if (filter.operator === "BETWEEN" && Array.isArray(filter.value)) {
-          queryParams.push(filter.value[0], filter.value[1]);
-          const startIdx = queryParams.length - 1;
-          const endIdx = queryParams.length;
-          return `${quote(filter.column)} BETWEEN $${startIdx} AND $${endIdx}`;
-        } else {
-          queryParams.push(filter.value);
-          return `${quote(filter.column)} ${filter.operator} $${
-            queryParams.length
-          }`;
-        }
+      const whereParts = filters.map((filter, i) => {
+        queryParams.push(filter.value);
+        return `${quoted(filter.column)} ${filter.operator} $${
+          queryParams.length
+        }`;
       });
-      query += ` WHERE ${whereClauses.join(" AND ")}`;
+      query += ` WHERE ${whereParts.join(" AND ")}`;
     }
 
-
+    // GROUP BY and ORDER BY
     query += ` GROUP BY ${groupByParts.join(", ")}`;
     query += ` ORDER BY ${groupByParts.join(", ")}`;
 
+    // Execute and return
     const result = await _query(query, queryParams);
 
     res.json({
       success: true,
       data: result.rows,
-      query, // For frontend debugging
+      query, // optional: for debugging
     });
   } catch (error) {
     console.error("Error in /aggregate:", error);
