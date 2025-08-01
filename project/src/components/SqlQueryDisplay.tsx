@@ -45,13 +45,13 @@ const SqlQueryDisplay: React.FC<SqlQueryDisplayProps> = ({
 
   return (
     <div className="bg-gradient-to-b from-white to-slate-50 rounded-xl border border-slate-200 p-1">
-      <div className="w-full h-full bg-gray-800 rounded-lg text-white font-mono text-sm relative p-1">
+      <div className="w-full h-full bg-slate-900 rounded-lg text-white font-mono text-sm relative p-1">
         <div className="p-3">
           <h3 className="text-md font-semibold mb-2 text-gray-200">
             Generated SQL Query
           </h3>
           {generatedQuery ? (
-            <div className="relative">
+            <div className="relative rounded-lg overflow-hidden">
               <SyntaxHighlighter
                 language="sql"
                 style={atomOneDark}
