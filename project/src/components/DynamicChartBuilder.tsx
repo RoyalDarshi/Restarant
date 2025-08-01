@@ -49,6 +49,14 @@ interface DynamicChartBuilderProps {
   columns: DatabaseColumn[];
 }
 
+type FilterOperator = "=" | "!=" | ">" | "<" | ">=" | "<=" | "LIKE" | "BETWEEN";
+
+interface FilterCondition {
+  column: string;
+  operator: FilterOperator;
+  value: string | number | [number, number];
+}
+
 const DynamicChartBuilder: React.FC<DynamicChartBuilderProps> = ({
   tableName,
   columns,
@@ -74,6 +82,7 @@ const DynamicChartBuilder: React.FC<DynamicChartBuilderProps> = ({
   );
   const [showChartOptions, setShowChartOptions] = useState(false);
   const [showAggregationOptions, setShowAggregationOptions] = useState(false);
+  const [filters, setFilters] = useState<FilterCondition[]>([]);
 
   const chartContainerRef = useRef<HTMLDivElement>(null);
   // Refs for click-outside functionality
@@ -142,7 +151,6 @@ const DynamicChartBuilder: React.FC<DynamicChartBuilderProps> = ({
       groupByParts.push(groupByColumn.key);
     }
 
-
     yAxisColumns.forEach((col) => {
       const colType = normalizeType(col.type);
       const agg = colType === "string" ? "COUNT" : aggregationType;
@@ -181,6 +189,7 @@ const DynamicChartBuilder: React.FC<DynamicChartBuilderProps> = ({
       yAxes: yAxisColumns.map((col) => col.key),
       groupBy: groupByColumn?.key,
       aggregationTypes,
+      filters, // ✅ NEW
     };
 
     apiService
@@ -279,6 +288,15 @@ const DynamicChartBuilder: React.FC<DynamicChartBuilderProps> = ({
         link.href = canvas.toDataURL("image/png");
         link.click();
       });
+    }
+  };
+
+  const getOperatorsForType = (type: string): FilterOperator[] => {
+    const normalized = normalizeType(type);
+    if (normalized === "number") {
+      return ["=", "!=", ">", "<", ">=", "<=", "BETWEEN"];
+    } else {
+      return ["=", "!=", "LIKE"];
     }
   };
 
@@ -719,6 +737,116 @@ const DynamicChartBuilder: React.FC<DynamicChartBuilderProps> = ({
               label="Drag column to group"
             />
           </div>
+        </div>
+
+        <div className="my-4 p-4 border rounded-md bg-slate-50">
+          <h3 className="text-md font-semibold mb-2">Filters</h3>
+          {filters.map((filter, index) => (
+            <div key={index} className="flex gap-2 items-center mb-2">
+              <select
+                value={filter.column}
+                onChange={(e) => {
+                  const newFilters = [...filters];
+                  newFilters[index].column = e.target.value;
+                  setFilters(newFilters);
+                }}
+                className="border rounded px-2 py-1"
+              >
+                {columns.map((col) => (
+                  <option key={col.key} value={col.key}>
+                    {col.label || col.key} ({normalizeType(col.type)})
+                  </option>
+                ))}
+              </select>
+
+              <select
+                value={filter.operator}
+                onChange={(e) => {
+                  const newFilters = [...filters];
+                  newFilters[index].operator = e.target.value as FilterOperator;
+                  setFilters(newFilters);
+                }}
+                className="border rounded px-2 py-1"
+              >
+                {getOperatorsForType(
+                  columns.find((col) => col.key === filter.column)?.type ||
+                    "string"
+                ).map((op) => (
+                  <option key={op} value={op}>
+                    {op}
+                  </option>
+                ))}
+              </select>
+
+              {filter.operator === "BETWEEN" ? (
+                <>
+                  <input
+                    type="number"
+                    placeholder="Min"
+                    value={(filter.value as [number, number])[0] ?? ""}
+                    onChange={(e) => {
+                      const newFilters = [...filters];
+                      const newVal: [number, number] = [
+                        Number(e.target.value),
+                        (filter.value as [number, number])[1] ?? 0,
+                      ];
+                      newFilters[index].value = newVal;
+                      setFilters(newFilters);
+                    }}
+                    className="w-20 border rounded px-2 py-1"
+                  />
+                  <input
+                    type="number"
+                    placeholder="Max"
+                    value={(filter.value as [number, number])[1] ?? ""}
+                    onChange={(e) => {
+                      const newFilters = [...filters];
+                      const newVal: [number, number] = [
+                        (filter.value as [number, number])[0] ?? 0,
+                        Number(e.target.value),
+                      ];
+                      newFilters[index].value = newVal;
+                      setFilters(newFilters);
+                    }}
+                    className="w-20 border rounded px-2 py-1"
+                  />
+                </>
+              ) : (
+                <input
+                  type="text"
+                  value={String(filter.value)}
+                  onChange={(e) => {
+                    const newFilters = [...filters];
+                    newFilters[index].value = e.target.value;
+                    setFilters(newFilters);
+                  }}
+                  className="border rounded px-2 py-1 w-40"
+                />
+              )}
+
+              <button
+                onClick={() => {
+                  const newFilters = filters.filter((_, i) => i !== index);
+                  setFilters(newFilters);
+                }}
+                className="text-red-500 hover:underline text-sm"
+              >
+                Remove
+              </button>
+            </div>
+          ))}
+
+          <button
+            onClick={() =>
+              setFilters([
+                ...filters,
+                { column: columns[0]?.key, operator: "=", value: "" },
+              ])
+            }
+            className="text-blue-600 hover:underline text-sm"
+          >
+            + Add Filter
+          </button>
         </div>
 
         <div className="flex flex-wrap items-center justify-between gap-4 mb-1">
