@@ -1,3 +1,4 @@
+// App.tsx
 import React, { useState, useEffect } from "react";
 import Sidebar from "./components/Sidebar";
 import DynamicDataTable from "./components/DynamicDataTable";
@@ -8,10 +9,17 @@ import DragDropProvider from "./components/DragDropProvider";
 import { DatabaseColumn } from "./services/api";
 import { apiService } from "./services/api"; // Make sure this path is correct
 
+// Ensure DatabaseColumn interface includes tableName
+// If this interface is in services/api.ts, you should update it there.
+// For demonstration, adding it here.
+interface UpdatedDatabaseColumn extends DatabaseColumn {
+  tableName?: string; // Add this property
+}
+
 function App() {
   const [activeTab, setActiveTab] = useState("data");
   const [selectedTable, setSelectedTable] = useState<string | null>(null);
-  const [tableColumns, setTableColumns] = useState<DatabaseColumn[]>([]);
+  const [tableColumns, setTableColumns] = useState<UpdatedDatabaseColumn[]>([]);
   const [tables, setTables] = useState<string[]>([]);
 
   // Add state for secondary table selection
@@ -19,7 +27,7 @@ function App() {
     string | null
   >(null);
   const [secondaryTableColumns, setSecondaryTableColumns] = useState<
-    DatabaseColumn[]
+    UpdatedDatabaseColumn[]
   >([]);
 
   useEffect(() => {
@@ -41,7 +49,13 @@ function App() {
       const response = await apiService.getTableColumns(tableName);
       if (response.data.success) {
         setSelectedTable(tableName);
-        setTableColumns(response.data.columns);
+        // Map columns to add tableName property
+        setTableColumns(
+          response.data.columns.map((col: DatabaseColumn) => ({
+            ...col,
+            tableName: tableName,
+          }))
+        );
       } else {
         console.error("Failed to get columns", response.error);
       }
@@ -56,7 +70,13 @@ function App() {
       const response = await apiService.getTableColumns(tableName);
       if (response.data.success) {
         setSecondarySelectedTable(tableName);
-        setSecondaryTableColumns(response.data.columns);
+        // Map columns to add tableName property
+        setSecondaryTableColumns(
+          response.data.columns.map((col: DatabaseColumn) => ({
+            ...col,
+            tableName: tableName,
+          }))
+        );
       } else {
         console.error(
           "Failed to get columns for secondary table",
@@ -91,18 +111,20 @@ function App() {
         );
 
       case "charts":
+        // Combine columns from both primary and secondary tables
+        const allColumns = [...tableColumns, ...secondaryTableColumns];
+
         return (
           <DragDropProvider>
             <div className="grid grid-cols-1 xl:grid-cols-6 gap-4">
               <div className="xl:col-span-1">
                 <DynamicColumnsPanel
                   tableName={selectedTable}
-                  columns={tableColumns}
+                  columns={allColumns} // Pass combined columns here
                   tables={tables}
                   onTableChange={handleTableSelect}
-                  // Props for second table selection
                   secondaryTableName={secondarySelectedTable}
-                  secondaryTables={tables} // Using the same tables list
+                  secondaryTables={tables}
                   onSecondaryTableChange={handleSecondaryTableSelect}
                 />
               </div>
@@ -110,7 +132,6 @@ function App() {
                 <DynamicChartBuilder
                   tableName={selectedTable || ""}
                   columns={tableColumns}
-                  // Optionally pass secondary table data to chart builder
                   secondaryTableName={secondarySelectedTable || ""}
                   secondaryColumns={secondaryTableColumns}
                 />

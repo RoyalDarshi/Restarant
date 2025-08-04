@@ -11,7 +11,7 @@ import {
 
 interface DynamicColumnsPanelProps {
   tableName: string | null;
-  columns: DatabaseColumn[];
+  columns: DatabaseColumn[]; // This will be ALL columns from primary and secondary
   tables: string[];
   onTableChange: (tableName: string) => void;
   // Props for second table selection
@@ -22,7 +22,7 @@ interface DynamicColumnsPanelProps {
 
 const DynamicColumnsPanel: React.FC<DynamicColumnsPanelProps> = ({
   tableName,
-  columns,
+  columns, // Now contains columns from both primary and secondary
   tables,
   onTableChange,
   secondaryTableName,
@@ -32,17 +32,34 @@ const DynamicColumnsPanel: React.FC<DynamicColumnsPanelProps> = ({
   const [searchTerm, setSearchTerm] = useState("");
   const [isExpanded, setIsExpanded] = useState(true);
 
-  // Use useMemo to memoize the sorted and filtered columns
-  const sortedAndFilteredColumns = useMemo(() => {
-    const filtered = columns.filter(
+  // Separate columns by their table origin
+  const primaryTableColumns = useMemo(() => {
+    return columns.filter((column) => column.tableName === tableName);
+  }, [columns, tableName]);
+
+  const secondaryTableColumns = useMemo(() => {
+    return columns.filter((column) => column.tableName === secondaryTableName);
+  }, [columns, secondaryTableName]);
+
+  // Memoize filtered and sorted columns for primary table
+  const sortedAndFilteredPrimaryColumns = useMemo(() => {
+    const filtered = primaryTableColumns.filter(
       (column) =>
         column.key.toLowerCase().includes(searchTerm.toLowerCase()) ||
         column.label.toLowerCase().includes(searchTerm.toLowerCase())
     );
-
-    // Sort the filtered columns alphabetically by their label
     return filtered.sort((a, b) => a.label.localeCompare(b.label));
-  }, [columns, searchTerm]); // Recalculate only when columns or searchTerm changes
+  }, [primaryTableColumns, searchTerm]);
+
+  // Memoize filtered and sorted columns for secondary table
+  const sortedAndFilteredSecondaryColumns = useMemo(() => {
+    const filtered = secondaryTableColumns.filter(
+      (column) =>
+        column.key.toLowerCase().includes(searchTerm.toLowerCase()) ||
+        column.label.toLowerCase().includes(searchTerm.toLowerCase())
+    );
+    return filtered.sort((a, b) => a.label.localeCompare(b.label));
+  }, [secondaryTableColumns, searchTerm]);
 
   return (
     <div className="bg-white rounded-xl shadow-sm border border-slate-200 overflow-hidden">
@@ -125,7 +142,7 @@ const DynamicColumnsPanel: React.FC<DynamicColumnsPanelProps> = ({
               </div>
             </div>
 
-            {tableName && (
+            {(tableName || secondaryTableName) && ( // Show search if either table is selected
               <div className="mt-4">
                 <label className="block text-sm font-medium text-slate-700 mb-2">
                   Search Columns
@@ -145,20 +162,74 @@ const DynamicColumnsPanel: React.FC<DynamicColumnsPanelProps> = ({
           </div>
 
           <div className="overflow-y-auto max-h-[calc(100vh-350px)] p-2">
-            {tableName ? (
-              sortedAndFilteredColumns.length > 0 ? (
-                <div className="space-y-2 p-2">
-                  {sortedAndFilteredColumns.map((column) => (
-                    <DraggableColumn key={column.key} column={column} />
-                  ))}
-                </div>
-              ) : (
-                <div className="text-center py-8 text-slate-500">
-                  <Columns className="h-12 w-12 mx-auto mb-3 opacity-20" />
-                  <p>No columns match your search</p>
-                  <p className="text-sm mt-1">Try a different search term</p>
-                </div>
-              )
+            {tableName || secondaryTableName ? (
+              <>
+                {/* Display Primary Table Columns */}
+                {tableName && (
+                  <>
+                    <h3 className="text-md font-semibold text-slate-800 px-2 py-1 bg-slate-100 rounded-md sticky top-0 z-10">
+                      {tableName} Columns
+                    </h3>
+                    {sortedAndFilteredPrimaryColumns.length > 0 ? (
+                      <div className="space-y-2 p-2">
+                        {sortedAndFilteredPrimaryColumns.map((column) => (
+                          <DraggableColumn key={column.key} column={column} />
+                        ))}
+                      </div>
+                    ) : (
+                      <div className="text-center py-4 text-slate-500 text-sm">
+                        No columns found for "{tableName}" matching search.
+                      </div>
+                    )}
+                  </>
+                )}
+
+                {/* Display Secondary Table Columns */}
+                {secondaryTableName && (
+                  <>
+                    <h3 className="text-md font-semibold text-slate-800 px-2 py-1 bg-slate-100 rounded-md sticky top-0 z-10 mt-4">
+                      {secondaryTableName} Columns
+                    </h3>
+                    {sortedAndFilteredSecondaryColumns.length > 0 ? (
+                      <div className="space-y-2 p-2">
+                        {sortedAndFilteredSecondaryColumns.map((column) => (
+                          <DraggableColumn key={column.key} column={column} />
+                        ))}
+                      </div>
+                    ) : (
+                      <div className="text-center py-4 text-slate-500 text-sm">
+                        No columns found for "{secondaryTableName}" matching
+                        search.
+                      </div>
+                    )}
+                  </>
+                )}
+
+                {/* No columns for either table or no search results */}
+                {!tableName && !secondaryTableName ? (
+                  <div className="text-center py-8 text-slate-500">
+                    <div className="bg-gradient-to-r from-blue-100 to-indigo-100 p-4 rounded-full w-16 h-16 mx-auto flex items-center justify-center mb-4">
+                      <Database className="h-8 w-8 text-blue-500" />
+                    </div>
+                    <p>Select a table to view columns</p>
+                    <p className="text-sm mt-1">
+                      Choose from the dropdown above
+                    </p>
+                  </div>
+                ) : (
+                  sortedAndFilteredPrimaryColumns.length === 0 &&
+                  sortedAndFilteredSecondaryColumns.length === 0 &&
+                  searchTerm !== "" && (
+                    <div className="text-center py-8 text-slate-500">
+                      <Columns className="h-12 w-12 mx-auto mb-3 opacity-20" />
+                      <p>No columns match your search</p>
+                      <p className="text-sm mt-1">
+                        Try a different search term
+                      </p>
+                    </div>
+                  )
+                )}
+              </>
             ) : (
               <div className="text-center py-8 text-slate-500">
                 <div className="bg-gradient-to-r from-blue-100 to-indigo-100 p-4 rounded-full w-16 h-16 mx-auto flex items-center justify-center mb-4">
