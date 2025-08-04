@@ -112,6 +112,7 @@ const DynamicChartBuilder: React.FC<DynamicChartBuilderProps> = ({
     };
   }, [aggregationOptionsRef]);
 
+  // Helper function to normalize column types for aggregation logic
   const normalizeType = (type: string): "string" | "number" => {
     const lower = type.toLowerCase();
     if (lower.includes("char") || lower === "text") return "string";
@@ -126,6 +127,7 @@ const DynamicChartBuilder: React.FC<DynamicChartBuilderProps> = ({
     return "string";
   };
 
+  // Function to construct the SQL query based on the current state
   const constructSqlQuery = useCallback(() => {
     if (!tableName || !xAxisColumn || yAxisColumns.length === 0) {
       return "";
@@ -157,6 +159,7 @@ const DynamicChartBuilder: React.FC<DynamicChartBuilderProps> = ({
     return query;
   }, [tableName, xAxisColumn, yAxisColumns, groupByColumn, aggregationType]);
 
+  // Effect to fetch data whenever chart configuration changes
   useEffect(() => {
     if (!tableName || !xAxisColumn || yAxisColumns.length === 0) {
       setChartData([]);
@@ -167,8 +170,10 @@ const DynamicChartBuilder: React.FC<DynamicChartBuilderProps> = ({
     setLoading(true);
     setError(null);
 
+    // First, generate the SQL query string
     setGeneratedQuery(constructSqlQuery());
 
+    // Determine aggregation types for the API request
     const aggregationTypes = yAxisColumns.map((col) => {
       const colType = normalizeType(col.type);
       return colType === "string" ? "COUNT" : aggregationType;
@@ -251,6 +256,7 @@ const DynamicChartBuilder: React.FC<DynamicChartBuilderProps> = ({
     setChartType("bar");
   };
 
+  // Define a consistent color palette for charts
   const COLORS = [
     "#3B82F6",
     "#EF4444",
@@ -262,11 +268,13 @@ const DynamicChartBuilder: React.FC<DynamicChartBuilderProps> = ({
     "#84CC16",
   ];
 
+  // Helper function to format numeric values for display
   const formatNumericValue = (value: any) => {
     const num = parseFloat(value);
     return !isNaN(num) ? num.toFixed(2) : value;
   };
 
+  // Download graph as a PNG image
   const handleDownloadGraph = () => {
     if (chartContainerRef.current) {
       html2canvas(chartContainerRef.current, {
@@ -281,6 +289,7 @@ const DynamicChartBuilder: React.FC<DynamicChartBuilderProps> = ({
     }
   };
 
+  // Download table data as a CSV file
   const handleDownloadTable = () => {
     if (chartData.length === 0) return;
 
@@ -315,6 +324,7 @@ const DynamicChartBuilder: React.FC<DynamicChartBuilderProps> = ({
     URL.revokeObjectURL(link.href);
   };
 
+  // Conditional rendering for the main chart area
   const renderChartContent = () => {
     if (loading) {
       return (
@@ -387,6 +397,7 @@ const DynamicChartBuilder: React.FC<DynamicChartBuilderProps> = ({
       );
     }
 
+    // Common props for all Recharts components
     const commonProps = {
       width: 800,
       height: 400,
@@ -649,7 +660,7 @@ const DynamicChartBuilder: React.FC<DynamicChartBuilderProps> = ({
 
   return (
     <div className="bg-white rounded-xl shadow-sm border border-slate-200 overflow-hidden">
-      <div className="p-1 border-b border-slate-200 flex items-center justify-between bg-gradient-to-r from-blue-50 to-indigo-50">
+      <div className="p-4 border-b border-slate-200 flex items-center justify-between bg-gradient-to-r from-blue-50 to-indigo-50">
         <div className="flex items-center">
           <div className="bg-gradient-to-r from-blue-500 to-indigo-600 p-2 rounded-lg mr-3">
             <BarChart3 className="h-5 w-5 text-white" />
@@ -673,9 +684,9 @@ const DynamicChartBuilder: React.FC<DynamicChartBuilderProps> = ({
         </button>
       </div>
 
-      <div className="p-1 pb-1">
-        <div className="grid grid-cols-1 lg:grid-cols-3 gap-4 mb-1">
-          <div className="bg-gradient-to-br from-blue-50 to-indigo-50 rounded-lg border border-slate-200 p-1">
+      <div className="p-4 pb-1">
+        <div className="grid grid-cols-1 lg:grid-cols-3 gap-4 mb-4">
+          <div className="bg-gradient-to-br from-blue-50 to-indigo-50 rounded-lg border border-slate-200 p-4">
             <label className="block text-sm font-medium text-slate-700 mb-2 flex items-center">
               <span className="bg-blue-500 w-2 h-2 rounded-full mr-2"></span>
               X-Axis (Categories)
@@ -720,83 +731,85 @@ const DynamicChartBuilder: React.FC<DynamicChartBuilderProps> = ({
           </div>
         </div>
 
-        <div className="flex flex-wrap items-center justify-between gap-4 mb-1">
+        {/* This div is the main control bar for the chart and table views */}
+        <div className="relative z-20 flex flex-wrap items-center justify-between gap-4 mb-4">
           <div className="flex flex-wrap items-center gap-3">
-            <div className="relative">
-              <button
-                onClick={() => setShowChartOptions(!showChartOptions)}
-                className="flex items-center px-4 py-2 bg-white border border-slate-300 rounded-lg text-slate-700 hover:bg-slate-50 transition-colors"
-              >
-                <Settings className="h-4 w-4 mr-2 text-blue-500" />
-                <span>Chart Options</span>
-                {showChartOptions ? (
-                  <ChevronUp className="h-4 w-4 ml-2" />
-                ) : (
-                  <ChevronDown className="h-4 w-4 ml-2" />
-                )}
-              </button>
-              {showChartOptions && (
-                <div
-                  ref={chartOptionsRef} // Attach ref here
-                  className="absolute z-10 mt-2 bg-white border border-slate-200 rounded-lg shadow-lg p-4 w-64"
+            {activeView === "graph" && (
+              <div className="relative">
+                <button
+                  onClick={() => setShowChartOptions(!showChartOptions)}
+                  className="flex items-center px-4 py-2 bg-white border border-slate-300 rounded-lg text-slate-700 hover:bg-slate-50 transition-colors"
                 >
-                  <div className="mb-4">
-                    <label className="block text-sm font-medium text-slate-700 mb-2">
-                      Chart Type
-                    </label>
-                    <div className="grid grid-cols-2 gap-2">
-                      {chartTypeOptions.map(({ type, label, icon: Icon }) => (
-                        <button
-                          key={type}
-                          onClick={() => handleChartTypeClick(type)}
-                          className={`flex flex-col items-center justify-center p-2 rounded-lg text-sm font-medium transition-colors ${
-                            chartType === type
-                              ? "bg-blue-100 text-blue-700 border border-blue-300"
-                              : "bg-slate-100 text-slate-700 hover:bg-slate-200"
-                          }`}
-                        >
-                          <Icon className="h-5 w-5 mb-1" />
-                          <span>{label}</span>
-                        </button>
-                      ))}
-                    </div>
-                  </div>
-
-                  {chartType === "bar" &&
-                    yAxisColumns.length >= 2 &&
-                    xAxisColumn && (
-                      <div>
-                        <label className="block text-sm font-medium text-slate-700 mb-2">
-                          Bar Style
-                        </label>
-                        <div className="flex items-center">
+                  <Settings className="h-4 w-4 mr-2 text-blue-500" />
+                  <span>Chart Options</span>
+                  {showChartOptions ? (
+                    <ChevronUp className="h-4 w-4 ml-2" />
+                  ) : (
+                    <ChevronDown className="h-4 w-4 ml-2" />
+                  )}
+                </button>
+                {showChartOptions && (
+                  <div
+                    ref={chartOptionsRef}
+                    className="absolute z-10 mt-2 bg-white border border-slate-200 rounded-lg shadow-lg p-4 w-64"
+                  >
+                    <div className="mb-4">
+                      <label className="block text-sm font-medium text-slate-700 mb-2">
+                        Chart Type
+                      </label>
+                      <div className="grid grid-cols-2 gap-2">
+                        {chartTypeOptions.map(({ type, label, icon: Icon }) => (
                           <button
-                            onClick={() => setStacked(false)}
-                            className={`flex-1 py-2 rounded-l-lg text-sm font-medium transition-colors ${
-                              !stacked
-                                ? "bg-blue-600 text-white"
-                                : "bg-slate-200 text-slate-700 hover:bg-slate-300"
+                            key={type}
+                            onClick={() => handleChartTypeClick(type)}
+                            className={`flex flex-col items-center justify-center p-2 rounded-lg text-sm font-medium transition-colors ${
+                              chartType === type
+                                ? "bg-blue-100 text-blue-700 border border-blue-300"
+                                : "bg-slate-100 text-slate-700 hover:bg-slate-200"
                             }`}
                           >
-                            Side-by-side
+                            <Icon className="h-5 w-5 mb-1" />
+                            <span>{label}</span>
                           </button>
-                          <button
-                            onClick={() => setStacked(true)}
-                            className={`flex-1 py-2 rounded-r-lg text-sm font-medium transition-colors ${
-                              stacked
-                                ? "bg-blue-600 text-white"
-                                : "bg-slate-200 text-slate-700 hover:bg-slate-300"
-                            }`}
-                          >
-                            Stacked
-                          </button>
-                        </div>
+                        ))}
                       </div>
-                    )}
-                </div>
-              )}
-            </div>
+                    </div>
 
+                    {chartType === "bar" &&
+                      yAxisColumns.length >= 2 &&
+                      xAxisColumn && (
+                        <div>
+                          <label className="block text-sm font-medium text-slate-700 mb-2">
+                            Bar Style
+                          </label>
+                          <div className="flex items-center">
+                            <button
+                              onClick={() => setStacked(false)}
+                              className={`flex-1 py-2 rounded-l-lg text-sm font-medium transition-colors ${
+                                !stacked
+                                  ? "bg-blue-600 text-white"
+                                  : "bg-slate-200 text-slate-700 hover:bg-slate-300"
+                              }`}
+                            >
+                              Side-by-side
+                            </button>
+                            <button
+                              onClick={() => setStacked(true)}
+                              className={`flex-1 py-2 rounded-r-lg text-sm font-medium transition-colors ${
+                                stacked
+                                  ? "bg-blue-600 text-white"
+                                  : "bg-slate-200 text-slate-700 hover:bg-slate-300"
+                              }`}
+                            >
+                              Stacked
+                            </button>
+                          </div>
+                        </div>
+                      )}
+                  </div>
+                )}
+              </div>
+            )}
             <div className="relative">
               <button
                 onClick={() =>
@@ -806,12 +819,16 @@ const DynamicChartBuilder: React.FC<DynamicChartBuilderProps> = ({
               >
                 <Layers className="h-4 w-4 mr-2 text-indigo-500" />
                 <span>Aggregation: {aggregationType}</span>
-                <ChevronDown className="h-4 w-4 ml-2" />
+                {showAggregationOptions ? (
+                  <ChevronUp className="h-4 w-4 ml-2" />
+                ) : (
+                  <ChevronDown className="h-4 w-4 ml-2" />
+                )}
               </button>
               {showAggregationOptions && (
                 <div
-                  ref={aggregationOptionsRef} // Attach ref here
-                  className="absolute z-10 mt-2 bg-white border border-slate-200 rounded-lg shadow-lg p-2 w-48"
+                  ref={aggregationOptionsRef}
+                  className="absolute z-30 mt-2 bg-white border border-slate-200 rounded-lg shadow-lg p-2 w-48 max-h-60 overflow-y-auto"
                 >
                   {aggregationOptions.map(({ value, label }) => (
                     <button
@@ -890,18 +907,22 @@ const DynamicChartBuilder: React.FC<DynamicChartBuilderProps> = ({
         )}
 
         {activeView === "table" && (
-          <ChartDataTable
-            chartData={chartData}
-            xAxisColumn={xAxisColumn}
-            yAxisColumns={yAxisColumns}
-            groupByColumn={groupByColumn}
-            aggregationType={aggregationType}
-            valueFormatter={formatNumericValue}
-          />
+          <div className="bg-gradient-to-b from-white to-slate-50 rounded-xl border border-slate-200 p-1">
+            <ChartDataTable
+              chartData={chartData}
+              xAxisColumn={xAxisColumn}
+              yAxisColumns={yAxisColumns}
+              groupByColumn={groupByColumn}
+              aggregationType={aggregationType}
+              valueFormatter={formatNumericValue}
+            />
+          </div>
         )}
 
         {activeView === "query" && (
-          <SqlQueryDisplay generatedQuery={generatedQuery} />
+          <div className="bg-gradient-to-b from-white to-slate-50 rounded-xl border border-slate-200 p-1">
+            <SqlQueryDisplay generatedQuery={generatedQuery} />
+          </div>
         )}
       </div>
     </div>
