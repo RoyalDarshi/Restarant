@@ -14,6 +14,14 @@ function App() {
   const [tableColumns, setTableColumns] = useState<DatabaseColumn[]>([]);
   const [tables, setTables] = useState<string[]>([]);
 
+  // Add state for secondary table selection
+  const [secondarySelectedTable, setSecondarySelectedTable] = useState<
+    string | null
+  >(null);
+  const [secondaryTableColumns, setSecondaryTableColumns] = useState<
+    DatabaseColumn[]
+  >([]);
+
   useEffect(() => {
     const fetchTables = async () => {
       try {
@@ -39,6 +47,24 @@ function App() {
       }
     } catch (err) {
       console.error("Failed to fetch columns", err);
+    }
+  };
+
+  // Handler for secondary table selection
+  const handleSecondaryTableSelect = async (tableName: string) => {
+    try {
+      const response = await apiService.getTableColumns(tableName);
+      if (response.data.success) {
+        setSecondarySelectedTable(tableName);
+        setSecondaryTableColumns(response.data.columns);
+      } else {
+        console.error(
+          "Failed to get columns for secondary table",
+          response.error
+        );
+      }
+    } catch (err) {
+      console.error("Failed to fetch columns for secondary table", err);
     }
   };
 
@@ -74,12 +100,19 @@ function App() {
                   columns={tableColumns}
                   tables={tables}
                   onTableChange={handleTableSelect}
+                  // Props for second table selection
+                  secondaryTableName={secondarySelectedTable}
+                  secondaryTables={tables} // Using the same tables list
+                  onSecondaryTableChange={handleSecondaryTableSelect}
                 />
               </div>
               <div className="xl:col-span-5">
                 <DynamicChartBuilder
                   tableName={selectedTable || ""}
                   columns={tableColumns}
+                  // Optionally pass secondary table data to chart builder
+                  secondaryTableName={secondarySelectedTable || ""}
+                  secondaryColumns={secondaryTableColumns}
                 />
               </div>
             </div>

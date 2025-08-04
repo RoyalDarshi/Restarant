@@ -44,10 +44,15 @@ import {
   Check,
 } from "lucide-react";
 
+
 interface DynamicChartBuilderProps {
   tableName: string;
   columns: DatabaseColumn[];
+  // Add new props
+  secondaryTableName?: string;
+  secondaryColumns?: DatabaseColumn[];
 }
+
 
 const DynamicChartBuilder: React.FC<DynamicChartBuilderProps> = ({
   tableName,

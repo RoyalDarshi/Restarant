@@ -1,4 +1,4 @@
-import React, { useState, useMemo } from "react"; // Import useMemo
+import React, { useState, useMemo } from "react";
 import { DatabaseColumn } from "../services/api";
 import DraggableColumn from "./DraggableColumn";
 import {
@@ -14,6 +14,10 @@ interface DynamicColumnsPanelProps {
   columns: DatabaseColumn[];
   tables: string[];
   onTableChange: (tableName: string) => void;
+  // Props for second table selection
+  secondaryTableName: string | null;
+  secondaryTables: string[];
+  onSecondaryTableChange: (tableName: string) => void;
 }
 
 const DynamicColumnsPanel: React.FC<DynamicColumnsPanelProps> = ({
@@ -21,6 +25,9 @@ const DynamicColumnsPanel: React.FC<DynamicColumnsPanelProps> = ({
   columns,
   tables,
   onTableChange,
+  secondaryTableName,
+  secondaryTables,
+  onSecondaryTableChange,
 }) => {
   const [searchTerm, setSearchTerm] = useState("");
   const [isExpanded, setIsExpanded] = useState(true);
@@ -60,7 +67,7 @@ const DynamicColumnsPanel: React.FC<DynamicColumnsPanelProps> = ({
         </div>
 
         <p className="text-sm text-slate-600 mt-1 ml-11">
-          Select a table and drag columns to build visualizations
+          Select tables and drag columns to build visualizations
         </p>
       </div>
 
@@ -69,7 +76,7 @@ const DynamicColumnsPanel: React.FC<DynamicColumnsPanelProps> = ({
           <div className="p-4 border-b border-slate-200">
             <div className="relative">
               <label className="block text-sm font-medium text-slate-700 mb-2">
-                Select Database Table
+                Primary Database Table
               </label>
               <div className="relative">
                 <select
@@ -81,6 +88,32 @@ const DynamicColumnsPanel: React.FC<DynamicColumnsPanelProps> = ({
                     Choose a table...
                   </option>
                   {tables.map((t) => (
+                    <option key={t} value={t}>
+                      {t}
+                    </option>
+                  ))}
+                </select>
+                <div className="pointer-events-none absolute inset-y-0 right-0 flex items-center px-3 pt-5 text-slate-500">
+                  <ChevronDown className="h-4 w-4" />
+                </div>
+              </div>
+            </div>
+
+            {/* Second table selection dropdown */}
+            <div className="relative mt-4">
+              <label className="block text-sm font-medium text-slate-700 mb-2">
+                Secondary Database Table
+              </label>
+              <div className="relative">
+                <select
+                  className="w-full border border-slate-300 rounded-xl px-4 py-3 text-sm bg-white shadow-sm focus:ring-2 focus:ring-blue-500 focus:border-transparent appearance-none"
+                  value={secondaryTableName || ""}
+                  onChange={(e) => onSecondaryTableChange(e.target.value)}
+                >
+                  <option value="" disabled className="text-slate-400">
+                    Choose a table...
+                  </option>
+                  {secondaryTables.map((t) => (
                     <option key={t} value={t}>
                       {t}
                     </option>
