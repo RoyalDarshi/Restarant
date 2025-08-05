@@ -46,6 +46,7 @@ import {
   Check,
 } from "lucide-react";
 
+
 interface DynamicChartBuilderProps {
   tableName: string; // Primary table name
   columns: DatabaseColumn[]; // Columns for the primary table
@@ -237,9 +238,9 @@ const DynamicChartBuilder: React.FC<DynamicChartBuilderProps> = ({
       "DynamicChartBuilder (useEffect): Current xAxisColumn state:",
       xAxisColumn
     );
-    console.log(
-      "DynamicChartBuilder (useEffect): Current yAxisColumns state:",
-      yAxisColumns
+    console.log("DynamicChartBuilder (useEffect): Current yAxisColumns state:");
+    yAxisColumns.forEach((col) =>
+      console.log(`  - Key: ${col.key}, TableName: ${col.tableName}`)
     );
     console.log(
       "DynamicChartBuilder (useEffect): Current groupByColumn state:",
@@ -286,26 +287,20 @@ const DynamicChartBuilder: React.FC<DynamicChartBuilderProps> = ({
       }
     }
 
-    // Map DatabaseColumn to AggregationColumn for the request, with defensive checks
-    // Use tableName property if available, otherwise fallback to the primary tableName prop
-    const xAxisForRequest: AggregationColumn | undefined =
-      xAxisColumn && xAxisColumn.key
-        ? {
-            key: xAxisColumn.key,
-            tableName: xAxisColumn.tableName || tableName,
-          }
-        : undefined;
+    // Map DatabaseColumn to AggregationColumn for the request.
+    // tableName is now guaranteed to be present on DatabaseColumn.
+    const xAxisForRequest: AggregationColumn = {
+      key: xAxisColumn.key,
+      tableName: xAxisColumn.tableName,
+    };
 
     const yAxesForRequest: AggregationColumn[] = yAxisColumns
-      .filter((col) => col && col.key) // Filter out any invalid columns
-      .map((col) => ({ key: col.key, tableName: col.tableName || tableName })); // Use tableName property or fallback
+      .filter((col) => col && col.key) // Filter out any invalid columns (though tableName is now required)
+      .map((col) => ({ key: col.key, tableName: col.tableName }));
 
     const groupByForRequest: AggregationColumn | undefined =
       groupByColumn && groupByColumn.key
-        ? {
-            key: groupByColumn.key,
-            tableName: groupByColumn.tableName || tableName,
-          }
+        ? { key: groupByColumn.key, tableName: groupByColumn.tableName }
         : undefined;
 
     // If critical columns are missing, set error and return early
