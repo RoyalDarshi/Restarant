@@ -56,6 +56,11 @@ function App() {
             tableName: tableName,
           }))
         );
+        // If the newly selected primary table is the same as the secondary, clear secondary
+        if (secondarySelectedTable === tableName) {
+          setSecondarySelectedTable(null);
+          setSecondaryTableColumns([]);
+        }
       } else {
         console.error("Failed to get columns", response.error);
       }
@@ -89,6 +94,11 @@ function App() {
   };
 
   const renderContent = () => {
+    // Filter out the selected primary table from the secondary table options
+    const filteredSecondaryTables = tables.filter(
+      (table) => table !== selectedTable
+    );
+
     switch (activeTab) {
       case "data":
         return (
@@ -121,10 +131,10 @@ function App() {
                 <DynamicColumnsPanel
                   tableName={selectedTable}
                   columns={allColumns} // Pass combined columns here
-                  tables={tables}
+                  tables={tables} // All tables for primary selection
                   onTableChange={handleTableSelect}
                   secondaryTableName={secondarySelectedTable}
-                  secondaryTables={tables}
+                  secondaryTables={filteredSecondaryTables} // Pass filtered tables for secondary selection
                   onSecondaryTableChange={handleSecondaryTableSelect}
                 />
               </div>

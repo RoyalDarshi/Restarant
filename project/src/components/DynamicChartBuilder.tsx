@@ -19,7 +19,7 @@ import {
 } from "recharts";
 import html2canvas from "html2canvas";
 import {
-  DatabaseColumn,
+  DatabaseColumn, // Assumed to have a 'tableName: string' property
   apiService,
   AggregationRequest,
 } from "../services/api";
@@ -46,17 +46,18 @@ import {
 
 
 interface DynamicChartBuilderProps {
-  tableName: string;
-  columns: DatabaseColumn[];
-  // Add new props
-  secondaryTableName?: string;
-  secondaryColumns?: DatabaseColumn[];
+  tableName: string; // Primary table name
+  columns: DatabaseColumn[]; // Columns for the primary table
+  secondaryTableName?: string; // Optional secondary table name
+  secondaryColumns?: DatabaseColumn[]; // Optional columns for the secondary table
 }
 
 
 const DynamicChartBuilder: React.FC<DynamicChartBuilderProps> = ({
   tableName,
   columns,
+  secondaryTableName, // Destructure secondaryTableName
+  secondaryColumns, // Destructure secondaryColumns
 }) => {
   const [xAxisColumn, setXAxisColumn] = useState<DatabaseColumn | null>(null);
   const [yAxisColumns, setYAxisColumns] = useState<DatabaseColumn[]>([]);
@@ -134,7 +135,13 @@ const DynamicChartBuilder: React.FC<DynamicChartBuilderProps> = ({
 
   // Function to construct the SQL query based on the current state
   const constructSqlQuery = useCallback(() => {
-    if (!tableName || !xAxisColumn || yAxisColumns.length === 0) {
+    // Dynamically determine the table name based on the dropped columns.
+    // If an X-axis column is selected, use its table. Otherwise, if Y-axis columns are selected, use the first one's table.
+    // Fallback to the primary tableName prop if no columns are selected yet.
+    const currentTableName =
+      xAxisColumn?.tableName || yAxisColumns[0]?.tableName || tableName;
+
+    if (!currentTableName || !xAxisColumn || yAxisColumns.length === 0) {
       return "";
     }
 
@@ -155,18 +162,22 @@ const DynamicChartBuilder: React.FC<DynamicChartBuilderProps> = ({
       selectParts.push(`${agg}(${col.key}) AS ${col.key}`);
     });
 
-    let query = `SELECT ${selectParts.join(", ")} FROM ${tableName}`;
+    let query = `SELECT ${selectParts.join(", ")} FROM ${currentTableName}`;
 
     if (groupByParts.length > 0) {
       query += ` GROUP BY ${groupByParts.join(", ")}`;
     }
 
     return query;
-  }, [tableName, xAxisColumn, yAxisColumns, groupByColumn, aggregationType]);
+  }, [xAxisColumn, yAxisColumns, groupByColumn, aggregationType, tableName]); // tableName is a dependency
 
   // Effect to fetch data whenever chart configuration changes
   useEffect(() => {
-    if (!tableName || !xAxisColumn || yAxisColumns.length === 0) {
+    // Dynamically determine the table name for the API request
+    const currentTableName =
+      xAxisColumn?.tableName || yAxisColumns[0]?.tableName || tableName;
+
+    if (!currentTableName || !xAxisColumn || yAxisColumns.length === 0) {
       setChartData([]);
       setGeneratedQuery("");
       return;
@@ -185,7 +196,7 @@ const DynamicChartBuilder: React.FC<DynamicChartBuilderProps> = ({
     });
 
     const request: AggregationRequest = {
-      tableName,
+      tableName: currentTableName, // Use the dynamically determined table name
       xAxis: xAxisColumn.key,
       yAxes: yAxisColumns.map((col) => col.key),
       groupBy: groupByColumn?.key,
@@ -224,6 +235,7 @@ const DynamicChartBuilder: React.FC<DynamicChartBuilderProps> = ({
   };
 
   const handleDrop = (column: DatabaseColumn, axis: "x" | "y" | "group") => {
+    // The DatabaseColumn object is expected to carry its tableName property
     if (axis === "x") {
       setXAxisColumn(column);
     } else if (axis === "y") {
@@ -435,17 +447,15 @@ const DynamicChartBuilder: React.FC<DynamicChartBuilderProps> = ({
                   fill={COLORS[index % COLORS.length]}
                   name={
                     normalizeType(column.type) === "string"
-                      ? `Count of ${column.label}`
-                      : column.label
+                      ? `Count of ${column.label || column.key}`
+                      : `${aggregationType} of ${column.label || column.key}`
                   }
-                  {...(stacked ? { stackId: "a" } : {})}
-                  //   radius={[4, 4, 0, 0]}
+                  stackId={stacked ? "a" : undefined}
                 />
               ))}
             </BarChart>
           </ResponsiveContainer>
         );
-
       case "line":
         return (
           <ResponsiveContainer width="100%" height={400}>
@@ -469,126 +479,40 @@ const DynamicChartBuilder: React.FC<DynamicChartBuilderProps> = ({
                   type="monotone"
                   dataKey={column.key}
                   stroke={COLORS[index % COLORS.length]}
-                  strokeWidth={2}
                   name={
                     normalizeType(column.type) === "string"
-                      ? `Count of ${column.label}`
-                      : column.label
+                      ? `Count of ${column.label || column.key}`
+                      : `${aggregationType} of ${column.label || column.key}`
                   }
-                  dot={{ r: 4, fill: COLORS[index % COLORS.length] }}
-                  activeDot={{ r: 6, fill: COLORS[index % COLORS.length] }}
+                  strokeWidth={2}
+                  activeDot={{ r: 8 }}
                 />
               ))}
             </LineChart>
           </ResponsiveContainer>
         );
-
-      case "area":
-        return (
-          <ResponsiveContainer width="100%" height={400}>
-            <AreaChart {...commonProps}>
-              <CartesianGrid strokeDasharray="3 3" stroke="#f0f0f0" />
-              <XAxis dataKey="name" stroke="#6b7280" />
-              <YAxis tickFormatter={formatNumericValue} stroke="#6b7280" />
-              <Tooltip
-                formatter={(value: any) => formatNumericValue(value)}
-                contentStyle={{
-                  background: "rgba(255, 255, 255, 0.95)",
-                  borderRadius: "8px",
-                  border: "1px solid #e5e7eb",
-                  boxShadow: "0 4px 12px rgba(0,0,0,0.1)",
-                }}
-              />
-              <Legend />
-              {yAxisColumns.map((column, index) => (
-                <Area
-                  key={column.key}
-                  type="monotone"
-                  dataKey={column.key}
-                  stroke={COLORS[index % COLORS.length]}
-                  fill={COLORS[index % COLORS.length]}
-                  fillOpacity={0.3}
-                  name={
-                    normalizeType(column.type) === "string"
-                      ? `Count of ${column.label}`
-                      : column.label
-                  }
-                />
-              ))}
-            </AreaChart>
-          </ResponsiveContainer>
-        );
-
-      case "composed":
-        return (
-          <ResponsiveContainer width="100%" height={400}>
-            <ComposedChart {...commonProps}>
-              <CartesianGrid strokeDasharray="3 3" stroke="#f0f0f0" />
-              <XAxis dataKey="name" stroke="#6b7280" />
-              <YAxis tickFormatter={formatNumericValue} stroke="#6b7280" />
-              <Tooltip
-                formatter={(value: any) => formatNumericValue(value)}
-                contentStyle={{
-                  background: "rgba(255, 255, 255, 0.95)",
-                  borderRadius: "8px",
-                  border: "1px solid #e5e7eb",
-                  boxShadow: "0 4px 12px rgba(0,0,0,0.1)",
-                }}
-              />
-              <Legend />
-              {yAxisColumns.map((column, index) =>
-                index % 2 === 0 ? (
-                  <Bar
-                    key={column.key}
-                    dataKey={column.key}
-                    fill={COLORS[index % COLORS.length]}
-                    name={
-                      normalizeType(column.type) === "string"
-                        ? `Count of ${column.label}`
-                        : column.label
-                    }
-                    radius={[4, 4, 0, 0]}
-                  />
-                ) : (
-                  <Line
-                    key={column.key}
-                    type="monotone"
-                    dataKey={column.key}
-                    stroke={COLORS[index % COLORS.length]}
-                    strokeWidth={2}
-                    name={
-                      normalizeType(column.type) === "string"
-                        ? `Count of ${column.label}`
-                        : column.label
-                    }
-                    dot={{ r: 4, fill: COLORS[index % COLORS.length] }}
-                  />
-                )
-              )}
-            </ComposedChart>
-          </ResponsiveContainer>
-        );
-
       case "pie":
+        // Pie chart only supports a single Y-axis column
         const pieData = chartData.map((item) => ({
           name: item.name,
-          value: item[yAxisColumns[0]?.key] || 0,
+          value: item[yAxisColumns[0]?.key] || 0, // Ensure a fallback for value
         }));
-
         return (
           <ResponsiveContainer width="100%" height={400}>
             <PieChart>
+              <Tooltip formatter={(value: any) => formatNumericValue(value)} />
+              <Legend />
               <Pie
                 data={pieData}
+                dataKey="value"
+                nameKey="name"
                 cx="50%"
                 cy="50%"
-                labelLine={false}
-                label={({ name, percent }) =>
-                  `${name} ${(percent * 100).toFixed(2)}%`
-                }
                 outerRadius={120}
                 fill="#8884d8"
-                dataKey="value"
+                label={({ name, percent }) =>
+                  `${name}: ${(percent * 100).toFixed(0)}%`
+                }
               >
                 {pieData.map((entry, index) => (
                   <Cell
@@ -597,20 +521,62 @@ const DynamicChartBuilder: React.FC<DynamicChartBuilderProps> = ({
                   />
                 ))}
               </Pie>
-              <Tooltip
-                formatter={(value: any) => formatNumericValue(value)}
-                contentStyle={{
-                  background: "rgba(255, 255, 255, 0.95)",
-                  borderRadius: "8px",
-                  border: "1px solid #e5e7eb",
-                  boxShadow: "0 4px 12px rgba(0,0,0,0.1)",
-                }}
-              />
-              <Legend />
             </PieChart>
           </ResponsiveContainer>
         );
-
+      case "area":
+        return (
+          <ResponsiveContainer width="100%" height={400}>
+            <AreaChart {...commonProps}>
+              <CartesianGrid strokeDasharray="3 3" stroke="#f0f0f0" />
+              <XAxis dataKey="name" stroke="#6b7280" />
+              <YAxis tickFormatter={formatNumericValue} stroke="#6b7280" />
+              <Tooltip formatter={(value: any) => formatNumericValue(value)} />
+              <Legend />
+              {yAxisColumns.map((column, index) => (
+                <Area
+                  key={column.key}
+                  type="monotone"
+                  dataKey={column.key}
+                  stroke={COLORS[index % COLORS.length]}
+                  fillOpacity={0.8}
+                  fill={`url(#color${index})`} // Note: This requires <defs> for gradients, which are not explicitly defined here. Recharts handles basic fill colors without it.
+                  name={
+                    normalizeType(column.type) === "string"
+                      ? `Count of ${column.label || column.key}`
+                      : `${aggregationType} of ${column.label || column.key}`
+                  }
+                  stackId={stacked ? "a" : undefined}
+                />
+              ))}
+            </AreaChart>
+          </ResponsiveContainer>
+        );
+      case "composed":
+        return (
+          <ResponsiveContainer width="100%" height={400}>
+            <ComposedChart {...commonProps}>
+              <CartesianGrid strokeDasharray="3 3" stroke="#f0f0f0" />
+              <XAxis dataKey="name" stroke="#6b7280" />
+              <YAxis tickFormatter={formatNumericValue} stroke="#6b7280" />
+              <Tooltip formatter={(value: any) => formatNumericValue(value)} />
+              <Legend />
+              {yAxisColumns.map((column, index) => {
+                const isLine = index % 2 === 0; // Example logic to alternate chart types
+                const chartComponent = isLine ? Line : Bar;
+                return React.createElement(chartComponent, {
+                  key: column.key,
+                  dataKey: column.key,
+                  name: column.label || column.key,
+                  fill: COLORS[index % COLORS.length],
+                  stroke: isLine ? COLORS[index % COLORS.length] : undefined,
+                  type: isLine ? "monotone" : undefined,
+                  stackId: !isLine ? "a" : undefined, // Only stack bars
+                });
+              })}
+            </ComposedChart>
+          </ResponsiveContainer>
+        );
       default:
         return null;
     }
@@ -640,6 +606,10 @@ const DynamicChartBuilder: React.FC<DynamicChartBuilderProps> = ({
     { type: "table" as const, label: "Table", icon: Table },
     { type: "query" as const, label: "SQL", icon: Terminal },
   ];
+
+  // Determine the table name to display in the header
+  const displayedTableName =
+    xAxisColumn?.tableName || yAxisColumns[0]?.tableName || tableName;
 
   if (!tableName) {
     return (
@@ -676,7 +646,8 @@ const DynamicChartBuilder: React.FC<DynamicChartBuilderProps> = ({
             </h2>
             <p className="text-sm text-slate-600 flex items-center">
               <Database className="h-3 w-3 mr-1" />
-              <span className="text-blue-600 font-medium">{tableName}</span>
+              {/* Display the dynamically determined table name */}
+              <span className="text-blue-600 font-medium">{displayedTableName}</span>
             </p>
           </div>
         </div>
