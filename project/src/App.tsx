@@ -6,8 +6,11 @@ import DynamicChartBuilder from "./components/DynamicChartBuilder";
 import DynamicColumnsPanel from "./components/DynamicColumnsPanel";
 import DatabaseSelector from "./components/DatabaseSelector";
 import DragDropProvider from "./components/DragDropProvider";
-import { DatabaseColumn } from "./services/api";
-import { apiService } from "./services/api"; // Make sure this path is correct
+import {
+  DatabaseColumn,
+  apiService,
+  DatabaseTableSchema,
+} from "./services/api"; // Import DatabaseTableSchema
 
 // Ensure DatabaseColumn interface includes tableName
 // If this interface is in services/api.ts, you should update it there.
@@ -16,11 +19,11 @@ interface UpdatedDatabaseColumn extends DatabaseColumn {
   tableName?: string; // Add this property
 }
 
-// Interface to hold schema for all tables
-interface DatabaseTableSchema {
-  tableName: string;
-  columns: UpdatedDatabaseColumn[];
-}
+// Interface to hold schema for all tables - now imported from api.ts
+// interface DatabaseTableSchema {
+//   tableName: string;
+//   columns: UpdatedDatabaseColumn[];
+// }
 
 function App() {
   const [activeTab, setActiveTab] = useState("data");
@@ -73,7 +76,7 @@ function App() {
                 columns: columnsResponse.data.columns.map(
                   (col: DatabaseColumn) => ({
                     ...col,
-                    tableName: tableName,
+                    tableName: tableName, // Ensure tableName is added to each column
                   })
                 ),
               });
@@ -240,6 +243,7 @@ function App() {
                   columns={tableColumns}
                   secondaryTableName={secondarySelectedTable || ""}
                   secondaryColumns={secondaryTableColumns}
+                  allTableSchemas={allTableSchemas} // Pass allTableSchemas
                 />
               </div>
             </div>

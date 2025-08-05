@@ -17,6 +17,7 @@ export interface DatabaseColumn {
   dataType: string;
   nullable: boolean;
   defaultValue: string | null;
+  tableName: string; // Made tableName required
 }
 
 export interface TableData {
@@ -30,17 +31,30 @@ export interface TableData {
   };
 }
 
-export interface AggregationRequest {
+export interface DatabaseTableSchema {
   tableName: string;
-  xAxis: string;
-  yAxes: string[];
-  groupBy?: string;
-  aggregationTypes: Array<"SUM" | "AVG" | "COUNT" | "MIN" | "MAX">; // ✅ fixed
+  columns: DatabaseColumn[];
+}
+
+// New interface for columns in aggregation request to include their table name
+export interface AggregationColumn {
+  key: string;
+  tableName: string;
+}
+
+export interface AggregationRequest {
+  tableName: string; // Primary table name
+  xAxis: AggregationColumn; // Now includes tableName
+  yAxes: AggregationColumn[]; // Now includes tableName
+  groupBy?: AggregationColumn; // Now includes tableName
+  aggregationTypes: Array<"SUM" | "AVG" | "COUNT" | "MIN" | "MAX">;
   filters?: Array<{
     column: string;
     operator: string;
     value: any;
   }>;
+  secondaryTableName?: string;
+  joinColumn?: string;
 }
 
 class ApiService {
@@ -74,7 +88,6 @@ class ApiService {
     }
   }
 
-  // Get all tables
   async getTables(): Promise<ApiResponse<string[]>> {
     const response = await this.fetchApi<{ tables: string[] }>(
       "/database/tables"
@@ -88,22 +101,24 @@ class ApiService {
     return response as ApiResponse<string[]>;
   }
 
-  // Get columns for a specific table
   async getTableColumns(
     tableName: string
-  ): Promise<ApiResponse<DatabaseColumn[]>> {
+  ): Promise<ApiResponse<{ success: boolean; columns: DatabaseColumn[] }>> {
     const response = await this.fetchApi<{ columns: DatabaseColumn[] }>(
       `/database/tables/${tableName}/columns`
     );
     if (response.success) {
       return {
+        success: true,
         data: response,
       };
     }
-    return response as ApiResponse<DatabaseColumn[]>;
+    return response as ApiResponse<{
+      success: boolean;
+      columns: DatabaseColumn[];
+    }>;
   }
 
-  // Get data from a specific table
   async getTableData(
     tableName: string,
     options: {
@@ -128,7 +143,6 @@ class ApiService {
     return this.fetchApi<TableData>(endpoint);
   }
 
-  // Get aggregated data for charts
   async getAggregatedData(
     request: AggregationRequest
   ): Promise<ApiResponse<any[]>> {
@@ -149,12 +163,10 @@ class ApiService {
     return response as ApiResponse<any[]>;
   }
 
-  // Get table statistics
   async getTableStats(tableName: string): Promise<ApiResponse<any>> {
     return this.fetchApi<any>(`/analytics/tables/${tableName}/stats`);
   }
 
-  // Execute custom query
   async executeQuery(
     query: string,
     params: any[] = []
@@ -173,7 +185,6 @@ class ApiService {
     return response as ApiResponse<any[]>;
   }
 
-  // Health check
   async healthCheck(): Promise<
     ApiResponse<{ message: string; timestamp: string }>
   > {

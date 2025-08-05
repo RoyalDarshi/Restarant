@@ -19,9 +19,11 @@ import {
 } from "recharts";
 import html2canvas from "html2canvas";
 import {
-  DatabaseColumn, // Assumed to have a 'tableName: string' property
+  DatabaseColumn,
   apiService,
   AggregationRequest,
+  DatabaseTableSchema,
+  AggregationColumn, // Import AggregationColumn
 } from "../services/api";
 import ChartDropZone from "./ChartDropZone";
 import ChartDataTable from "./ChartDataTable";
@@ -44,20 +46,20 @@ import {
   Check,
 } from "lucide-react";
 
-
 interface DynamicChartBuilderProps {
   tableName: string; // Primary table name
   columns: DatabaseColumn[]; // Columns for the primary table
   secondaryTableName?: string; // Optional secondary table name
   secondaryColumns?: DatabaseColumn[]; // Optional columns for the secondary table
+  allTableSchemas: DatabaseTableSchema[]; // All table schemas for join logic
 }
-
 
 const DynamicChartBuilder: React.FC<DynamicChartBuilderProps> = ({
   tableName,
   columns,
-  secondaryTableName, // Destructure secondaryTableName
-  secondaryColumns, // Destructure secondaryColumns
+  secondaryTableName,
+  secondaryColumns,
+  allTableSchemas,
 }) => {
   const [xAxisColumn, setXAxisColumn] = useState<DatabaseColumn | null>(null);
   const [yAxisColumns, setYAxisColumns] = useState<DatabaseColumn[]>([]);
@@ -82,11 +84,9 @@ const DynamicChartBuilder: React.FC<DynamicChartBuilderProps> = ({
   const [showAggregationOptions, setShowAggregationOptions] = useState(false);
 
   const chartContainerRef = useRef<HTMLDivElement>(null);
-  // Refs for click-outside functionality
   const chartOptionsRef = useRef<HTMLDivElement>(null);
   const aggregationOptionsRef = useRef<HTMLDivElement>(null);
 
-  // Effect to handle clicks outside the chart options dropdown
   useEffect(() => {
     const handleClickOutside = (event: MouseEvent) => {
       if (
@@ -102,7 +102,6 @@ const DynamicChartBuilder: React.FC<DynamicChartBuilderProps> = ({
     };
   }, [chartOptionsRef]);
 
-  // Effect to handle clicks outside the aggregation options dropdown
   useEffect(() => {
     const handleClickOutside = (event: MouseEvent) => {
       if (
@@ -118,7 +117,6 @@ const DynamicChartBuilder: React.FC<DynamicChartBuilderProps> = ({
     };
   }, [aggregationOptionsRef]);
 
-  // Helper function to normalize column types for aggregation logic
   const normalizeType = (type: string): "string" | "number" => {
     const lower = type.toLowerCase();
     if (lower.includes("char") || lower === "text") return "string";
@@ -133,51 +131,99 @@ const DynamicChartBuilder: React.FC<DynamicChartBuilderProps> = ({
     return "string";
   };
 
-  // Function to construct the SQL query based on the current state
   const constructSqlQuery = useCallback(() => {
-    // Dynamically determine the table name based on the dropped columns.
-    // If an X-axis column is selected, use its table. Otherwise, if Y-axis columns are selected, use the first one's table.
-    // Fallback to the primary tableName prop if no columns are selected yet.
-    const currentTableName =
-      xAxisColumn?.tableName || yAxisColumns[0]?.tableName || tableName;
+    const primaryTable = tableName;
+    const secondaryTable = secondaryTableName;
 
-    if (!currentTableName || !xAxisColumn || yAxisColumns.length === 0) {
+    if (!xAxisColumn || yAxisColumns.length === 0) {
       return "";
     }
 
     const selectParts: string[] = [];
     const groupByParts: string[] = [];
+    let fromClause = `"${primaryTable}" AS t1`;
+    let joinClause = "";
+    let joinColumnKey: string | undefined;
 
-    selectParts.push(`${xAxisColumn.key} AS name`);
-    groupByParts.push(xAxisColumn.key);
+    const usesSecondaryTable =
+      secondaryTable &&
+      (xAxisColumn.tableName === secondaryTable ||
+        yAxisColumns.some((col) => col.tableName === secondaryTable) ||
+        groupByColumn?.tableName === secondaryTable);
+
+    if (usesSecondaryTable && secondaryTable) {
+      const primarySchema = allTableSchemas.find(
+        (schema) => schema.tableName === primaryTable
+      );
+      const secondarySchema = allTableSchemas.find(
+        (schema) => schema.tableName === secondaryTable
+      );
+
+      if (primarySchema && secondarySchema) {
+        for (const pCol of primarySchema.columns) {
+          for (const sCol of secondarySchema.columns) {
+            if (pCol.key === sCol.key && pCol.type === sCol.type) {
+              joinColumnKey = pCol.key;
+              break;
+            }
+          }
+          if (joinColumnKey) break;
+        }
+      }
+
+      if (joinColumnKey) {
+        joinClause = ` INNER JOIN "${secondaryTable}" AS t2 ON t1."${joinColumnKey}" = t2."${joinColumnKey}"`;
+      } else {
+        console.warn(
+          "No common column found for join between tables. Generating query without join."
+        );
+        joinClause = "";
+      }
+    }
+
+    const getQualifiedColumn = (column: DatabaseColumn) => {
+      if (usesSecondaryTable && column.tableName === secondaryTable) {
+        return `t2."${column.key}"`;
+      }
+      return `t1."${column.key}"`;
+    };
+
+    selectParts.push(`${getQualifiedColumn(xAxisColumn)} AS name`);
+    groupByParts.push(getQualifiedColumn(xAxisColumn));
 
     if (groupByColumn && groupByColumn.key !== xAxisColumn.key) {
-      selectParts.push(groupByColumn.key);
-      groupByParts.push(groupByColumn.key);
+      selectParts.push(getQualifiedColumn(groupByColumn));
+      groupByParts.push(getQualifiedColumn(groupByColumn));
     }
 
     yAxisColumns.forEach((col) => {
       const colType = normalizeType(col.type);
       const agg = colType === "string" ? "COUNT" : aggregationType;
-      selectParts.push(`${agg}(${col.key}) AS ${col.key}`);
+      selectParts.push(`${agg}(${getQualifiedColumn(col)}) AS "${col.key}"`);
     });
 
-    let query = `SELECT ${selectParts.join(", ")} FROM ${currentTableName}`;
+    let query = `SELECT ${selectParts.join(
+      ", "
+    )} FROM ${fromClause}${joinClause}`;
 
     if (groupByParts.length > 0) {
       query += ` GROUP BY ${groupByParts.join(", ")}`;
     }
+    query += ` ORDER BY ${groupByParts.join(", ")}`;
 
     return query;
-  }, [xAxisColumn, yAxisColumns, groupByColumn, aggregationType, tableName]); // tableName is a dependency
+  }, [
+    tableName,
+    xAxisColumn,
+    yAxisColumns,
+    groupByColumn,
+    aggregationType,
+    secondaryTableName,
+    allTableSchemas,
+  ]);
 
-  // Effect to fetch data whenever chart configuration changes
   useEffect(() => {
-    // Dynamically determine the table name for the API request
-    const currentTableName =
-      xAxisColumn?.tableName || yAxisColumns[0]?.tableName || tableName;
-
-    if (!currentTableName || !xAxisColumn || yAxisColumns.length === 0) {
+    if (!xAxisColumn || yAxisColumns.length === 0) {
       setChartData([]);
       setGeneratedQuery("");
       return;
@@ -186,22 +232,100 @@ const DynamicChartBuilder: React.FC<DynamicChartBuilderProps> = ({
     setLoading(true);
     setError(null);
 
-    // First, generate the SQL query string
-    setGeneratedQuery(constructSqlQuery());
+    // --- Start Debug Logging (Frontend - useEffect) ---
+    console.log(
+      "DynamicChartBuilder (useEffect): Current xAxisColumn state:",
+      xAxisColumn
+    );
+    console.log(
+      "DynamicChartBuilder (useEffect): Current yAxisColumns state:",
+      yAxisColumns
+    );
+    console.log(
+      "DynamicChartBuilder (useEffect): Current groupByColumn state:",
+      groupByColumn
+    );
+    // --- End Debug Logging (Frontend - useEffect) ---
 
-    // Determine aggregation types for the API request
-    const aggregationTypes = yAxisColumns.map((col) => {
+    const sqlQuery = constructSqlQuery();
+    setGeneratedQuery(sqlQuery);
+
+    const aggregationTypesForRequest = yAxisColumns.map((col) => {
       const colType = normalizeType(col.type);
       return colType === "string" ? "COUNT" : aggregationType;
     });
 
+    let joinColumnKey: string | undefined;
+    let secondaryTableForRequest: string | undefined;
+
+    const usesSecondaryTable =
+      secondaryTableName &&
+      (xAxisColumn.tableName === secondaryTableName ||
+        yAxisColumns.some((col) => col.tableName === secondaryTableName) ||
+        groupByColumn?.tableName === secondaryTableName);
+
+    if (usesSecondaryTable && secondaryTableName) {
+      const primarySchema = allTableSchemas.find(
+        (schema) => schema.tableName === tableName
+      );
+      const secondarySchema = allTableSchemas.find(
+        (schema) => schema.tableName === secondaryTableName
+      );
+
+      if (primarySchema && secondarySchema) {
+        for (const pCol of primarySchema.columns) {
+          for (const sCol of secondarySchema.columns) {
+            if (pCol.key === sCol.key && pCol.type === sCol.type) {
+              joinColumnKey = pCol.key;
+              secondaryTableForRequest = secondaryTableName;
+              break;
+            }
+          }
+          if (joinColumnKey) break;
+        }
+      }
+    }
+
+    // Map DatabaseColumn to AggregationColumn for the request, with defensive checks
+    // Use tableName property if available, otherwise fallback to the primary tableName prop
+    const xAxisForRequest: AggregationColumn | undefined =
+      xAxisColumn && xAxisColumn.key
+        ? {
+            key: xAxisColumn.key,
+            tableName: xAxisColumn.tableName || tableName,
+          }
+        : undefined;
+
+    const yAxesForRequest: AggregationColumn[] = yAxisColumns
+      .filter((col) => col && col.key) // Filter out any invalid columns
+      .map((col) => ({ key: col.key, tableName: col.tableName || tableName })); // Use tableName property or fallback
+
+    const groupByForRequest: AggregationColumn | undefined =
+      groupByColumn && groupByColumn.key
+        ? {
+            key: groupByColumn.key,
+            tableName: groupByColumn.tableName || tableName,
+          }
+        : undefined;
+
+    // If critical columns are missing, set error and return early
+    if (!xAxisForRequest || yAxesForRequest.length === 0) {
+      setError("X-Axis or Y-Axis columns are not properly defined.");
+      setLoading(false);
+      return;
+    }
+
     const request: AggregationRequest = {
-      tableName: currentTableName, // Use the dynamically determined table name
-      xAxis: xAxisColumn.key,
-      yAxes: yAxisColumns.map((col) => col.key),
-      groupBy: groupByColumn?.key,
-      aggregationTypes,
+      tableName: tableName,
+      xAxis: xAxisForRequest,
+      yAxes: yAxesForRequest,
+      groupBy: groupByForRequest,
+      aggregationTypes: aggregationTypesForRequest,
+      secondaryTableName: secondaryTableForRequest,
+      joinColumn: joinColumnKey,
     };
+
+    console.log("Sending Aggregation Request from frontend:", request);
 
     apiService
       .getAggregatedData(request)
@@ -212,8 +336,8 @@ const DynamicChartBuilder: React.FC<DynamicChartBuilderProps> = ({
           setError(response.error || "Failed to fetch chart data");
         }
       })
-      .catch(() => {
-        setError("Failed to generate chart data");
+      .catch((err) => {
+        setError("Failed to generate chart data: " + err.message);
       })
       .finally(() => {
         setLoading(false);
@@ -225,6 +349,9 @@ const DynamicChartBuilder: React.FC<DynamicChartBuilderProps> = ({
     groupByColumn,
     aggregationType,
     constructSqlQuery,
+    secondaryTableName,
+    secondaryColumns,
+    allTableSchemas,
   ]);
 
   const handleChartTypeClick = (
@@ -235,7 +362,10 @@ const DynamicChartBuilder: React.FC<DynamicChartBuilderProps> = ({
   };
 
   const handleDrop = (column: DatabaseColumn, axis: "x" | "y" | "group") => {
-    // The DatabaseColumn object is expected to carry its tableName property
+    // --- Start Debug Logging (Frontend - handleDrop) ---
+    console.log(`handleDrop: Dropped column for ${axis} axis:`, column);
+    // --- End Debug Logging (Frontend - handleDrop) ---
+
     if (axis === "x") {
       setXAxisColumn(column);
     } else if (axis === "y") {
@@ -273,7 +403,6 @@ const DynamicChartBuilder: React.FC<DynamicChartBuilderProps> = ({
     setChartType("bar");
   };
 
-  // Define a consistent color palette for charts
   const COLORS = [
     "#3B82F6",
     "#EF4444",
@@ -285,13 +414,11 @@ const DynamicChartBuilder: React.FC<DynamicChartBuilderProps> = ({
     "#84CC16",
   ];
 
-  // Helper function to format numeric values for display
   const formatNumericValue = (value: any) => {
     const num = parseFloat(value);
     return !isNaN(num) ? num.toFixed(2) : value;
   };
 
-  // Download graph as a PNG image
   const handleDownloadGraph = () => {
     if (chartContainerRef.current) {
       html2canvas(chartContainerRef.current, {
@@ -306,7 +433,6 @@ const DynamicChartBuilder: React.FC<DynamicChartBuilderProps> = ({
     }
   };
 
-  // Download table data as a CSV file
   const handleDownloadTable = () => {
     if (chartData.length === 0) return;
 
@@ -341,7 +467,6 @@ const DynamicChartBuilder: React.FC<DynamicChartBuilderProps> = ({
     URL.revokeObjectURL(link.href);
   };
 
-  // Conditional rendering for the main chart area
   const renderChartContent = () => {
     if (loading) {
       return (
@@ -414,7 +539,6 @@ const DynamicChartBuilder: React.FC<DynamicChartBuilderProps> = ({
       );
     }
 
-    // Common props for all Recharts components
     const commonProps = {
       width: 800,
       height: 400,
@@ -492,10 +616,9 @@ const DynamicChartBuilder: React.FC<DynamicChartBuilderProps> = ({
           </ResponsiveContainer>
         );
       case "pie":
-        // Pie chart only supports a single Y-axis column
         const pieData = chartData.map((item) => ({
           name: item.name,
-          value: item[yAxisColumns[0]?.key] || 0, // Ensure a fallback for value
+          value: item[yAxisColumns[0]?.key] || 0,
         }));
         return (
           <ResponsiveContainer width="100%" height={400}>
@@ -540,7 +663,7 @@ const DynamicChartBuilder: React.FC<DynamicChartBuilderProps> = ({
                   dataKey={column.key}
                   stroke={COLORS[index % COLORS.length]}
                   fillOpacity={0.8}
-                  fill={`url(#color${index})`} // Note: This requires <defs> for gradients, which are not explicitly defined here. Recharts handles basic fill colors without it.
+                  fill={`url(#color${index})`}
                   name={
                     normalizeType(column.type) === "string"
                       ? `Count of ${column.label || column.key}`
@@ -562,7 +685,7 @@ const DynamicChartBuilder: React.FC<DynamicChartBuilderProps> = ({
               <Tooltip formatter={(value: any) => formatNumericValue(value)} />
               <Legend />
               {yAxisColumns.map((column, index) => {
-                const isLine = index % 2 === 0; // Example logic to alternate chart types
+                const isLine = index % 2 === 0;
                 const chartComponent = isLine ? Line : Bar;
                 return React.createElement(chartComponent, {
                   key: column.key,
@@ -571,7 +694,7 @@ const DynamicChartBuilder: React.FC<DynamicChartBuilderProps> = ({
                   fill: COLORS[index % COLORS.length],
                   stroke: isLine ? COLORS[index % COLORS.length] : undefined,
                   type: isLine ? "monotone" : undefined,
-                  stackId: !isLine ? "a" : undefined, // Only stack bars
+                  stackId: !isLine ? "a" : undefined,
                 });
               })}
             </ComposedChart>
@@ -584,7 +707,12 @@ const DynamicChartBuilder: React.FC<DynamicChartBuilderProps> = ({
 
   const chartTypeOptions = [
     { type: "bar" as const, label: "Bar", icon: BarChart3 },
-    { type: "line" as const, label: "Line", icon: LineChartIcon },
+    {
+      type: "line" as const,
+      label: "Line",
+      label: "Line",
+      icon: LineChartIcon,
+    },
     { type: "area" as const, label: "Area", icon: Activity },
     { type: "composed" as const, label: "Mixed", icon: Layers },
     { type: "pie" as const, label: "Pie", icon: PieChartIcon },
@@ -607,7 +735,6 @@ const DynamicChartBuilder: React.FC<DynamicChartBuilderProps> = ({
     { type: "query" as const, label: "SQL", icon: Terminal },
   ];
 
-  // Determine the table name to display in the header
   const displayedTableName =
     xAxisColumn?.tableName || yAxisColumns[0]?.tableName || tableName;
 
@@ -646,8 +773,18 @@ const DynamicChartBuilder: React.FC<DynamicChartBuilderProps> = ({
             </h2>
             <p className="text-sm text-slate-600 flex items-center">
               <Database className="h-3 w-3 mr-1" />
-              {/* Display the dynamically determined table name */}
-              <span className="text-blue-600 font-medium">{displayedTableName}</span>
+              <span className="text-blue-600 font-medium">
+                {displayedTableName}
+              </span>
+              {secondaryTableName && (
+                <span className="ml-1 text-slate-500">
+                  {" "}
+                  +{" "}
+                  <span className="text-purple-600 font-medium">
+                    {secondaryTableName}
+                  </span>
+                </span>
+              )}
             </p>
           </div>
         </div>
@@ -707,7 +844,6 @@ const DynamicChartBuilder: React.FC<DynamicChartBuilderProps> = ({
           </div>
         </div>
 
-        {/* This div is the main control bar for the chart and table views */}
         <div className="relative z-20 flex flex-wrap items-center justify-between gap-4 mb-4">
           <div className="flex flex-wrap items-center gap-3">
             {activeView === "graph" && (
