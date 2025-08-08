@@ -15,14 +15,14 @@ const Sidebar: React.FC<SidebarProps> = ({ activeTab, onTabChange }) => {
   ];
 
   return (
-    <div className="w-64 bg-slate-900 text-white h-screen flex flex-col">
-      <div className="p-6 border-b border-slate-700">
-        <div className="flex items-center space-x-3">
-          <BarChart3 className="h-8 w-8 text-blue-400" />
+    <div className="w-44 bg-slate-900 text-white h-screen flex flex-col">
+      <div className="p-2 py-6 border-b border-slate-700">
+        <div className="flex items-center space-x-2">
+          {/* <BarChart3 className="h-8 w-8 text-blue-400" /> */}
           <h1 className="text-xl font-bold">Analytics Hub</h1>
         </div>
       </div>
-      
+
       <nav className="flex-1 p-4">
         <ul className="space-y-2">
           {menuItems.map((item) => {
@@ -33,8 +33,8 @@ const Sidebar: React.FC<SidebarProps> = ({ activeTab, onTabChange }) => {
                   onClick={() => onTabChange(item.id)}
                   className={`w-full flex items-center space-x-3 px-4 py-3 rounded-lg transition-colors ${
                     activeTab === item.id
-                      ? 'bg-blue-600 text-white'
-                      : 'text-slate-300 hover:bg-slate-800 hover:text-white'
+                      ? "bg-blue-600 text-white"
+                      : "text-slate-300 hover:bg-slate-800 hover:text-white"
                   }`}
                 >
                   <Icon className="h-5 w-5" />
@@ -45,7 +45,7 @@ const Sidebar: React.FC<SidebarProps> = ({ activeTab, onTabChange }) => {
           })}
         </ul>
       </nav>
-      
+
       <div className="p-4 border-t border-slate-700">
         <button className="w-full flex items-center space-x-3 px-4 py-3 text-slate-300 hover:bg-slate-800 hover:text-white rounded-lg transition-colors">
           <Download className="h-5 w-5" />
