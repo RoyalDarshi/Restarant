@@ -218,9 +218,9 @@ const ChartDataTable: React.FC<ChartDataTableProps> = ({
   const totalPages = Math.ceil(processedData.length / pageSize);
 
   return (
-    <div className="mt-4 bg-gradient-to-br from-white to-slate-50 rounded-xl shadow-sm border border-slate-200 overflow-hidden">
+    <div className="bg-gradient-to-br from-white to-slate-50 rounded-xl shadow-sm border border-slate-200 overflow-hidden">
       {/* Controls */}
-      <div className="flex flex-wrap items-center gap-4 p-4 bg-gradient-to-r from-slate-100 to-gray-100 border-b border-gray-200">
+      <div className="flex flex-wrap items-center gap-2 p-2 bg-gradient-to-r from-slate-100 to-gray-100 border-b border-gray-200">
         {/* Search */}
         <div className="relative flex-1 min-w-64">
           <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 h-5 w-5 text-slate-400" />
