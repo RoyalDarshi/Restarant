@@ -409,10 +409,22 @@ const DynamicChartBuilder: React.FC<DynamicChartBuilderProps> = ({
     "#84CC16",
   ];
 
-  const formatNumericValue = (value: any) => {
-    const num = parseFloat(value);
-    return !isNaN(num) ? num.toFixed(2) : value;
-  };
+const formatNumericValue = (value: any) => {
+  const num = parseFloat(value);
+  if (isNaN(num)) return value;
+
+  if (Math.abs(num) >= 1_000_000_000) {
+    return (num / 1_000_000_000).toFixed(1) + "B";
+  }
+  if (Math.abs(num) >= 1_000_000) {
+    return (num / 1_000_000).toFixed(1) + "M";
+  }
+  if (Math.abs(num) >= 1_000) {
+    return (num / 1_000).toFixed(1) + "K";
+  }
+
+  return num.toFixed(2);
+};
 
   const handleDownloadGraph = () => {
     if (chartContainerRef.current) {
