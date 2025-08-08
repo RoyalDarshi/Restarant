@@ -559,7 +559,11 @@ const formatNumericValue = (value: any) => {
           <ResponsiveContainer width="100%" height={400}>
             <BarChart {...commonProps}>
               <CartesianGrid strokeDasharray="3 3" stroke="#f0f0f0" />
-              <XAxis dataKey="name" stroke="#6b7280" />
+              <XAxis
+                dataKey="name"
+                stroke="#6b7280"
+                interval="preserveStartEnd"
+              />
               <YAxis tickFormatter={formatNumericValue} stroke="#6b7280" />
               <Tooltip
                 formatter={(value: any) => formatNumericValue(value)}
