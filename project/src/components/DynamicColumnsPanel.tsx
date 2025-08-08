@@ -63,31 +63,6 @@ const DynamicColumnsPanel: React.FC<DynamicColumnsPanelProps> = ({
 
   return (
     <div className="bg-white rounded-xl shadow-sm border border-slate-200 overflow-hidden">
-      <div
-        className="p-4 border-b border-slate-200 bg-gradient-to-r from-blue-50 to-indigo-50 cursor-pointer"
-        onClick={() => setIsExpanded(!isExpanded)}
-      >
-        <div className="flex items-center justify-between">
-          <div className="flex items-center">
-            <div className="bg-gradient-to-r from-blue-500 to-indigo-600 p-2 rounded-lg mr-3">
-              <Database className="h-5 w-5 text-white" />
-            </div>
-            <h2 className="text-lg font-semibold text-slate-900">
-              Data Explorer
-            </h2>
-          </div>
-          {isExpanded ? (
-            <ChevronUp className="h-5 w-5 text-slate-500" />
-          ) : (
-            <ChevronDown className="h-5 w-5 text-slate-500" />
-          )}
-        </div>
-
-        <p className="text-sm text-slate-600 mt-1 ml-11">
-          Select tables and drag columns to build visualizations
-        </p>
-      </div>
-
       {isExpanded && (
         <>
           <div className="p-4 border-b border-slate-200">

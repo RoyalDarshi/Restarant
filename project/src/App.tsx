@@ -10,31 +10,33 @@ import {
   DatabaseColumn,
   apiService,
   DatabaseTableSchema,
-} from "./services/api"; // Import DatabaseTableSchema
+} from "./services/api";
 
-// Ensure DatabaseColumn interface includes tableName
-// If this interface is in services/api.ts, you should update it there.
-// For demonstration, adding it here.
+// Extend column to include tableName
 interface UpdatedDatabaseColumn extends DatabaseColumn {
-  tableName?: string; // Add this property
+  tableName?: string;
 }
 
-// Interface to hold schema for all tables - now imported from api.ts
-// interface DatabaseTableSchema {
-//   tableName: string;
-//   columns: UpdatedDatabaseColumn[];
-// }
+// Scalable tab title/subtitle maps
+const tabTitles: Record<string, string> = {
+  trends: "Trends Analysis",
+  settings: "Settings",
+};
+
+const tabSubtitles: Record<string, string> = {
+  trends: "Discover patterns and forecast future trends",
+  settings: "Configure your dashboard preferences",
+};
 
 function App() {
   const [activeTab, setActiveTab] = useState("data");
   const [selectedTable, setSelectedTable] = useState<string | null>(null);
   const [tableColumns, setTableColumns] = useState<UpdatedDatabaseColumn[]>([]);
-  const [tables, setTables] = useState<string[]>([]); // List of all table names
+  const [tables, setTables] = useState<string[]>([]);
   const [allTableSchemas, setAllTableSchemas] = useState<DatabaseTableSchema[]>(
     []
-  ); // All tables with their columns
+  );
 
-  // State for secondary table selection
   const [secondarySelectedTable, setSecondarySelectedTable] = useState<
     string | null
   >(null);
@@ -42,14 +44,14 @@ function App() {
     UpdatedDatabaseColumn[]
   >([]);
 
-  // Effect to fetch only table names on initial load
+  // Fetch table names
   useEffect(() => {
     const fetchTableNames = async () => {
       try {
         const response = await apiService.getTables();
         if (response.success) {
           setTables(response.data);
-          console.log("App.tsx: Fetched table names:", response.data); // Debug log
+          console.log("App.tsx: Fetched table names:", response.data);
         }
       } catch (err) {
         console.error("App.tsx: Failed to fetch table names", err);
@@ -58,7 +60,7 @@ function App() {
     fetchTableNames();
   }, []);
 
-  // Effect to fetch all table schemas (names + columns) only when 'charts' tab is active
+  // Fetch schemas when charts tab is active
   useEffect(() => {
     if (
       activeTab === "charts" &&
@@ -76,7 +78,7 @@ function App() {
                 columns: columnsResponse.data.columns.map(
                   (col: DatabaseColumn) => ({
                     ...col,
-                    tableName: tableName, // Ensure tableName is added to each column
+                    tableName: tableName,
                   })
                 ),
               });
@@ -86,21 +88,20 @@ function App() {
           console.log(
             "App.tsx: Fetched all table schemas for charts tab:",
             schemas
-          ); // Debug log
+          );
         } catch (err) {
           console.error("App.tsx: Failed to fetch all table schemas", err);
         }
       };
       fetchAllTableSchemas();
     }
-  }, [activeTab, tables, allTableSchemas.length]); // Dependencies: activeTab, tables, and allTableSchemas.length to prevent re-fetching if already loaded
+  }, [activeTab, tables, allTableSchemas.length]);
 
   const handleTableSelect = async (tableName: string) => {
     try {
       const response = await apiService.getTableColumns(tableName);
       if (response.data.success) {
         setSelectedTable(tableName);
-        // Map columns to add tableName property
         const fetchedColumns = response.data.columns.map(
           (col: DatabaseColumn) => ({
             ...col,
@@ -111,8 +112,7 @@ function App() {
         console.log(
           `App.tsx: Columns fetched for primary table '${tableName}':`,
           fetchedColumns
-        ); // Debug log
-        // If the newly selected primary table is the same as the secondary, clear secondary
+        );
         if (secondarySelectedTable === tableName) {
           setSecondarySelectedTable(null);
           setSecondaryTableColumns([]);
@@ -125,13 +125,11 @@ function App() {
     }
   };
 
-  // Handler for secondary table selection
   const handleSecondaryTableSelect = async (tableName: string) => {
     try {
       const response = await apiService.getTableColumns(tableName);
       if (response.data.success) {
         setSecondarySelectedTable(tableName);
-        // Map columns to add tableName property
         const fetchedSecondaryColumns = response.data.columns.map(
           (col: DatabaseColumn) => ({
             ...col,
@@ -142,7 +140,7 @@ function App() {
         console.log(
           `App.tsx: Columns fetched for secondary table '${tableName}':`,
           fetchedSecondaryColumns
-        ); // Debug log
+        );
       } else {
         console.error(
           "App.tsx: Failed to get columns for secondary table",
@@ -157,20 +155,16 @@ function App() {
     }
   };
 
-  // Memoized function to filter secondary tables based on column matches with the primary table
   const filteredSecondaryTablesForDropdown = useMemo(() => {
-    // This logic now depends on allTableSchemas being populated, which happens when 'charts' tab is active.
     if (
       !selectedTable ||
       tableColumns.length === 0 ||
       allTableSchemas.length === 0
     ) {
-      return []; // No primary table selected or all schemas not loaded yet
+      return [];
     }
 
-    // Create a Set of primary table column keys for efficient lookup
     const primaryColumnKeys = new Set(tableColumns.map((col) => col.key));
-    // Create a Map of primary table column keys to their types for type matching
     const primaryColumnTypes = new Map(
       tableColumns.map((col) => [col.key, col.type])
     );
@@ -178,24 +172,21 @@ function App() {
     const eligibleSecondaryTables: string[] = [];
 
     for (const schema of allTableSchemas) {
-      // Exclude the primary table itself from secondary options
-      if (schema.tableName === selectedTable) {
-        continue;
-      }
+      if (schema.tableName === selectedTable) continue;
 
-      // Check if any column in the current secondary table schema matches a column in the primary table
       const hasMatchingColumn = schema.columns.some(
         (secondaryCol) =>
           primaryColumnKeys.has(secondaryCol.key) &&
-          primaryColumnTypes.get(secondaryCol.key) === secondaryCol.type // Match both key and type
+          primaryColumnTypes.get(secondaryCol.key) === secondaryCol.type
       );
 
       if (hasMatchingColumn) {
         eligibleSecondaryTables.push(schema.tableName);
       }
     }
+
     return eligibleSecondaryTables;
-  }, [selectedTable, tableColumns, allTableSchemas]); // Dependencies for memoization
+  }, [selectedTable, tableColumns, allTableSchemas]);
 
   const renderContent = () => {
     switch (activeTab) {
@@ -220,20 +211,19 @@ function App() {
         );
 
       case "charts":
-        // Combine columns from both primary and secondary tables for the chart builder
         const allColumns = [...tableColumns, ...secondaryTableColumns];
 
         return (
           <DragDropProvider>
-            <div className="grid grid-cols-1 xl:grid-cols-6 gap-4">
+            <div className="grid grid-cols-1 xl:grid-cols-6 gap-1">
               <div className="xl:col-span-1">
                 <DynamicColumnsPanel
                   tableName={selectedTable}
-                  columns={allColumns} // Pass combined columns here
-                  tables={tables} // All tables for primary selection
+                  columns={allColumns}
+                  tables={tables}
                   onTableChange={handleTableSelect}
                   secondaryTableName={secondarySelectedTable}
-                  secondaryTables={filteredSecondaryTablesForDropdown} // Pass the newly filtered list
+                  secondaryTables={filteredSecondaryTablesForDropdown}
                   onSecondaryTableChange={handleSecondaryTableSelect}
                 />
               </div>
@@ -243,7 +233,7 @@ function App() {
                   columns={tableColumns}
                   secondaryTableName={secondarySelectedTable || ""}
                   secondaryColumns={secondaryTableColumns}
-                  allTableSchemas={allTableSchemas} // Pass allTableSchemas
+                  allTableSchemas={allTableSchemas}
                 />
               </div>
             </div>
@@ -281,29 +271,17 @@ function App() {
     <div className="flex h-screen bg-slate-100">
       <Sidebar activeTab={activeTab} onTabChange={setActiveTab} />
 
-      <main className="flex-1 overflow-auto p-4">
-        {" "}
-        {/* Added p-4 for consistent padding */}
-        <div className="mb-6">
-          {" "}
-          {/* Added mb-6 for spacing */}
-          <h1 className="text-3xl font-bold text-slate-900">
-            {activeTab === "data" && "Data Explorer"}{" "}
-            {/* Added title for data tab */}
-            {activeTab === "charts" && "Chart Dashboard"}{" "}
-            {/* Added title for charts tab */}
-            {activeTab === "trends" && "Trends Analysis"}
-            {activeTab === "settings" && "Settings"}
-          </h1>
-          <p className="text-slate-600 mt-2">
-            {activeTab === "data" && "Browse and manage your database tables"}
-            {activeTab === "charts" &&
-              "Visualize your data with interactive charts"}
-            {activeTab === "trends" &&
-              "Discover patterns and forecast future trends"}
-            {activeTab === "settings" && "Configure your dashboard preferences"}
-          </p>
-        </div>
+      <main className="flex-1 overflow-auto p-2">
+        {/* Conditionally render title + subtitle only when content exists */}
+        {(tabTitles[activeTab] || tabSubtitles[activeTab]) && (
+          <div className="mb-6">
+            <h1 className="text-3xl font-bold text-slate-900">
+              {tabTitles[activeTab]}
+            </h1>
+            <p className="text-slate-600 mt-2">{tabSubtitles[activeTab]}</p>
+          </div>
+        )}
+
         {renderContent()}
       </main>
     </div>

@@ -757,44 +757,9 @@ const DynamicChartBuilder: React.FC<DynamicChartBuilderProps> = ({
 
   return (
     <div className="bg-white rounded-xl shadow-sm border border-slate-200 overflow-hidden">
-      <div className="p-4 border-b border-slate-200 flex items-center justify-between bg-gradient-to-r from-blue-50 to-indigo-50">
-        <div className="flex items-center">
-          <div className="bg-gradient-to-r from-blue-500 to-indigo-600 p-2 rounded-lg mr-3">
-            <BarChart3 className="h-5 w-5 text-white" />
-          </div>
-          <div>
-            <h2 className="text-lg font-semibold text-slate-900">
-              Chart Builder
-            </h2>
-            <p className="text-sm text-slate-600 flex items-center">
-              <Database className="h-3 w-3 mr-1" />
-              <span className="text-blue-600 font-medium">
-                {displayedTableName}
-              </span>
-              {secondaryTableName && (
-                <span className="ml-1 text-slate-500">
-                  {" "}
-                  +{" "}
-                  <span className="text-purple-600 font-medium">
-                    {secondaryTableName}
-                  </span>
-                </span>
-              )}
-            </p>
-          </div>
-        </div>
-        <button
-          onClick={handleReset}
-          className="flex items-center space-x-2 px-3 py-2 text-slate-600 hover:text-slate-900 hover:bg-slate-100 rounded-lg transition-colors"
-        >
-          <RefreshCw className="h-4 w-4" />
-          <span>Reset</span>
-        </button>
-      </div>
-
-      <div className="p-4 pb-1">
-        <div className="grid grid-cols-1 lg:grid-cols-3 gap-4 mb-4">
-          <div className="bg-gradient-to-br from-blue-50 to-indigo-50 rounded-lg border border-slate-200 p-4">
+      <div className="p-2 pb-1">
+        <div className="grid grid-cols-1 lg:grid-cols-3 gap-2 mb-1">
+          <div className="bg-gradient-to-br from-blue-50 to-indigo-50 rounded-lg border border-slate-200 p-2">
             <label className="block text-sm font-medium text-slate-700 mb-2 flex items-center">
               <span className="bg-blue-500 w-2 h-2 rounded-full mr-2"></span>
               X-Axis (Categories)
@@ -807,7 +772,7 @@ const DynamicChartBuilder: React.FC<DynamicChartBuilderProps> = ({
               label="Drag column for categories"
             />
           </div>
-          <div className="bg-gradient-to-br from-indigo-50 to-purple-50 rounded-lg border border-slate-200 p-4">
+          <div className="bg-gradient-to-br from-indigo-50 to-purple-50 rounded-lg border border-slate-200 p-2">
             <label className="block text-sm font-medium text-slate-700 mb-2 flex items-center">
               <span className="bg-indigo-500 w-2 h-2 rounded-full mr-2"></span>
               Y-Axis (Values)
@@ -824,7 +789,7 @@ const DynamicChartBuilder: React.FC<DynamicChartBuilderProps> = ({
               allowMultiple={true}
             />
           </div>
-          <div className="bg-gradient-to-br from-purple-50 to-pink-50 rounded-lg border border-slate-200 p-4">
+          <div className="bg-gradient-to-br from-purple-50 to-pink-50 rounded-lg border border-slate-200 p-2">
             <label className="block text-sm font-medium text-slate-700 mb-2 flex items-center">
               <span className="bg-purple-500 w-2 h-2 rounded-full mr-2"></span>
               Group By (Optional)
@@ -839,7 +804,7 @@ const DynamicChartBuilder: React.FC<DynamicChartBuilderProps> = ({
           </div>
         </div>
 
-        <div className="relative z-20 flex flex-wrap items-center justify-between gap-4 mb-4">
+        <div className="relative z-20 flex flex-wrap items-center justify-between gap-4 mb-1">
           <div className="flex flex-wrap items-center gap-3">
             {activeView === "graph" && (
               <div className="relative">
