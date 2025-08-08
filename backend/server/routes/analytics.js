@@ -9,54 +9,33 @@ router.post("/aggregate", async (req, res) => {
     const {
       tableName, // Primary table
       xAxis, // Expected to be { key: string, tableName: string }
-      yAxes, // Expected to be Array<{ key: string, tableName: string }>
-      groupBy, // Expected to be { key: string, tableName: string } | undefined
-      aggregationTypes,
+      yAxes, // Array<{ key: string, tableName: string }>
+      groupBy, // Optional: { key: string, tableName: string }
+      aggregationTypes, // Array of aggregation function names like 'SUM', 'COUNT'
       filters = [],
-      secondaryTableName, // Secondary table for joins
-      joinColumn, // Common column for joining
+      secondaryTableName, // Optional: table for join
+      joinColumn, // Optional: column to join on
     } = req.body;
 
-    // --- Start Debug Logging ---
+    // --- Debug Logging ---
     console.log("Received Aggregation Request:");
-    console.log("  Primary Table (frontend selected):", tableName);
-    console.log(
-      "  Secondary Table (frontend selected, if any):",
-      secondaryTableName
-    );
-    console.log("  Join Column (frontend identified, if any):", joinColumn);
-    console.log("--- Column Details from Request (for qualification) ---");
-    console.log(
-      "  X-Axis Column:",
-      xAxis ? xAxis.key : "N/A",
-      "from table:",
-      xAxis ? xAxis.tableName : "N/A"
-    );
-    yAxes.forEach((col, index) => {
-      console.log(
-        `  Y-Axis Column ${index + 1}:`,
-        col ? col.key : "N/A",
-        "from table:",
-        col ? col.tableName : "N/A"
-      );
+    console.log("  Primary Table:", tableName);
+    console.log("  Secondary Table:", secondaryTableName);
+    console.log("  Join Column:", joinColumn);
+    console.log("  X-Axis:", xAxis?.key, "from", xAxis?.tableName);
+    yAxes.forEach((col, i) => {
+      console.log(`  Y-Axis ${i + 1}:`, col?.key, "from", col?.tableName);
     });
     if (groupBy) {
-      console.log(
-        "  Group By Column:",
-        groupBy.key,
-        "from table:",
-        groupBy.tableName
-      );
+      console.log("  Group By:", groupBy.key, "from", groupBy.tableName);
     } else {
-      console.log("  No Group By Column.");
+      console.log("  No Group By");
     }
-    console.log("-------------------------------------------------");
-    // --- End Debug Logging ---
 
-    // Basic validation
+    // --- Validation ---
     if (
       !tableName ||
-      !xAxis || // This checks if xAxis itself is null/undefined
+      !xAxis ||
       !yAxes ||
       yAxes.length === 0 ||
       !aggregationTypes ||
@@ -68,32 +47,30 @@ router.post("/aggregate", async (req, res) => {
       });
     }
 
-    // Enhanced validation for column objects: ensure key and tableName are present
     if (!xAxis.key || !xAxis.tableName) {
       return res.status(400).json({
         success: false,
-        error: "X-Axis column (key or table name) is missing or invalid.",
+        error: "Invalid xAxis column or table name",
       });
     }
+
     for (const col of yAxes) {
       if (!col || !col.key || !col.tableName) {
         return res.status(400).json({
           success: false,
-          error: `Y-Axis column '${
-            col ? col.key : "unknown"
-          }' (key or table name) is missing or invalid.`,
+          error: `Invalid yAxis column: ${JSON.stringify(col)}`,
         });
       }
     }
+
     if (groupBy && (!groupBy.key || !groupBy.tableName)) {
       return res.status(400).json({
         success: false,
-        error: "Group By column (key or table name) is missing or invalid.",
+        error: "Invalid groupBy column or table name",
       });
     }
 
     const quoted = (col) => `"${col}"`;
-
     const needsJoin = secondaryTableName && joinColumn;
 
     const primaryTableAlias = "t1";
@@ -102,50 +79,40 @@ router.post("/aggregate", async (req, res) => {
     const selectParts = [];
     const groupByParts = [];
 
-    // Helper to get qualified column name based on its originating table
     const getQualifiedColumn = (columnObj) => {
-      // This check should ideally be redundant due to the validation above,
-      // but serves as a final safeguard.
       if (!columnObj || !columnObj.key) {
-        console.error(
-          "Attempted to qualify an invalid column object:",
-          columnObj
-        );
-        throw new Error(
-          "Invalid column key provided for SQL query generation."
-        );
+        throw new Error("Invalid column object");
       }
-      // If a join is needed and the column belongs to the secondary table
       if (needsJoin && columnObj.tableName === secondaryTableName) {
         return `${secondaryTableAlias}.${quoted(columnObj.key)}`;
       }
-      // Otherwise, assume it belongs to the primary table
       return `${primaryTableAlias}.${quoted(columnObj.key)}`;
     };
 
-    // Add X-axis to SELECT and GROUP BY
+    // X-axis
     selectParts.push(`${getQualifiedColumn(xAxis)} AS name`);
     groupByParts.push(getQualifiedColumn(xAxis));
 
-    // Add Group By column if present and different from X-axis
+    // Group by (if exists and not same as xAxis)
     if (groupBy && groupBy.key !== xAxis.key) {
       selectParts.push(`${getQualifiedColumn(groupBy)} AS group_by`);
       groupByParts.push(getQualifiedColumn(groupBy));
     }
 
-    // Add Y-axes with aggregation
+    // ✅ Y-axes with aggregation + cast to INTEGER
     yAxes.forEach((col, idx) => {
       const agg = aggregationTypes[idx];
       selectParts.push(
-        `${agg}(${getQualifiedColumn(col)}) AS ${quoted(col.key)}`
+        `CAST(${agg}(${getQualifiedColumn(col)}) AS INTEGER) AS ${quoted(
+          col.key
+        )}`
       );
     });
 
-    // Construct FROM and JOIN clauses
+    // FROM + JOIN
     let query = `SELECT ${selectParts.join(", ")} FROM ${quoted(
       tableName
     )} AS ${primaryTableAlias}`;
-
     if (needsJoin) {
       query += ` INNER JOIN ${quoted(
         secondaryTableName
@@ -157,13 +124,9 @@ router.post("/aggregate", async (req, res) => {
     const queryParams = [];
 
     // WHERE clause (filters)
-    // Assuming filter columns are from the primary table for simplicity.
-    // If filters can apply to secondary table columns, this logic would need to be extended
-    // to include `tableName` in filter objects and use `getQualifiedColumn`.
     if (filters.length > 0) {
       const whereParts = filters.map((filter, i) => {
         queryParams.push(filter.value);
-        // This is a simplification. For full robustness, filter.column should also carry its tableName.
         return `${primaryTableAlias}.${quoted(filter.column)} ${
           filter.operator
         } $${queryParams.length}`;
@@ -171,20 +134,18 @@ router.post("/aggregate", async (req, res) => {
       query += ` WHERE ${whereParts.join(" AND ")}`;
     }
 
-    // GROUP BY and ORDER BY
+    // GROUP BY + ORDER BY
     query += ` GROUP BY ${groupByParts.join(", ")}`;
     query += ` ORDER BY ${groupByParts.join(", ")}`;
 
-    // --- Final Query Debug Log ---
-    console.log("Generated SQL Query (before execution):", query);
-    // --- End Final Query Debug Log ---
+    console.log("Generated SQL Query:", query);
 
     const result = await _query(query, queryParams);
 
     res.json({
       success: true,
       data: result.rows,
-      query, // Return the generated query for frontend display
+      query,
     });
   } catch (error) {
     console.error("Error in /aggregate:", error);
