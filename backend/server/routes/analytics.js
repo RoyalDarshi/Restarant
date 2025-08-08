@@ -1,7 +1,16 @@
 import { Router } from "express";
+import pkg from "pg";
+const { types } = pkg;
+
 const router = Router();
 import pool from "../database/connection.js";
 const _query = pool.query.bind(pool);
+
+// --- Setup pg parser override for BIGINT (OID 20) ---
+types.setTypeParser(20, (val) => {
+  const parsed = parseInt(val, 10);
+  return Number.isSafeInteger(parsed) ? parsed : val;
+});
 
 // POST /analytics/aggregate
 router.post("/aggregate", async (req, res) => {
@@ -99,11 +108,11 @@ router.post("/aggregate", async (req, res) => {
       groupByParts.push(getQualifiedColumn(groupBy));
     }
 
-    // ✅ Y-axes with aggregation + cast to INTEGER
+    // Y-axes with aggregation + cast to BIGINT (instead of INTEGER)
     yAxes.forEach((col, idx) => {
       const agg = aggregationTypes[idx];
       selectParts.push(
-        `CAST(${agg}(${getQualifiedColumn(col)}) AS INTEGER) AS ${quoted(
+        `CAST(${agg}(${getQualifiedColumn(col)}) AS BIGINT) AS ${quoted(
           col.key
         )}`
       );
