@@ -104,11 +104,14 @@ router.post("/aggregate", async (req, res) => {
 
     // Group by (if exists and not same as xAxis)
     if (groupBy && groupBy.key !== xAxis.key) {
-      selectParts.push(`${getQualifiedColumn(groupBy)} AS group_by`);
+      // FIX: Use the actual column key as the alias
+      selectParts.push(
+        `${getQualifiedColumn(groupBy)} AS ${quoted(groupBy.key)}`
+      );
       groupByParts.push(getQualifiedColumn(groupBy));
     }
 
-    // Y-axes with aggregation + cast to BIGINT (instead of INTEGER)
+    // Y-axes with aggregation + cast to BIGINT
     yAxes.forEach((col, idx) => {
       const agg = aggregationTypes[idx];
       selectParts.push(
