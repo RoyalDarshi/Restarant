@@ -27,7 +27,7 @@ interface ChartDisplayProps {
   xAxisColumn: DatabaseColumn | null;
   yAxisColumns: DatabaseColumn[];
   groupByColumn: DatabaseColumn | null;
-  uniqueGroupKeys?: string[]; // Added this prop for stacked charts
+  uniqueGroupKeys?: string[]; // for stacked charts
   aggregationType: AggregationType;
   loading: boolean;
   error: string | null;
@@ -66,13 +66,20 @@ const ChartDisplay: React.FC<ChartDisplayProps> = ({
   xAxisColumn,
   yAxisColumns,
   groupByColumn,
-  uniqueGroupKeys,
+  uniqueGroupKeys = [],
   aggregationType,
   loading,
   error,
   stacked,
   chartContainerRef,
 }) => {
+  // 1) Only treat grouping as “real” if groupByColumn is different from xAxisColumn
+  const isGroupingValid =
+    !!groupByColumn &&
+    !!xAxisColumn &&
+    groupByColumn.key !== xAxisColumn.key &&
+    uniqueGroupKeys.length > 0;
+
   if (loading) {
     return (
       <div className="h-96 flex flex-col items-center justify-center">
@@ -152,67 +159,79 @@ const ChartDisplay: React.FC<ChartDisplayProps> = ({
   const renderChart = () => {
     switch (chartType) {
       case "bar":
-        // Logic for stacked bar chart when a groupByColumn is present
-        if (groupByColumn && uniqueGroupKeys) {
+        // Only pivot/stack by group if grouping is valid
+        if (isGroupingValid) {
           return (
             <BarChart {...commonProps}>
               <CartesianGrid strokeDasharray="3 3" stroke="#f0f0f0" />
-              <XAxis dataKey="name" stroke="#6b7280" interval="preserveStartEnd" />
+              <XAxis
+                dataKey="name"
+                stroke="#6b7280"
+                interval="preserveStartEnd"
+              />
               <YAxis tickFormatter={formatNumericValue} stroke="#6b7280" />
               <Tooltip
-                formatter={(value) => formatNumericValue(value)}
+                formatter={formatNumericValue}
                 contentStyle={{
-                  background: "rgba(255, 255, 255, 0.95)",
-                  borderRadius: "8px",
+                  background: "rgba(255,255,255,0.95)",
+                  borderRadius: 8,
                   border: "1px solid #e5e7eb",
                   boxShadow: "0 4px 12px rgba(0,0,0,0.1)",
                 }}
               />
               <Legend />
-              {uniqueGroupKeys.map((groupKey, index) => (
+              {uniqueGroupKeys!.map((groupKey, idx) => (
                 <Bar
                   key={groupKey}
                   dataKey={groupKey}
-                  fill={COLORS[index % COLORS.length]}
-                  name={groupKey} // Display the group key in the legend
-                  stackId="a" // All bars will stack on the same stackId
+                  fill={COLORS[idx % COLORS.length]}
+                  name={groupKey}
+                  stackId="a"
                 />
               ))}
             </BarChart>
           );
         }
 
-        // Existing logic for regular bar charts
+        // Fallback to your regular bar logic
         return (
           <BarChart {...commonProps}>
             <CartesianGrid strokeDasharray="3 3" stroke="#f0f0f0" />
-            <XAxis dataKey="name" stroke="#6b7280" interval="preserveStartEnd" />
+            <XAxis
+              dataKey="name"
+              stroke="#6b7280"
+              interval="preserveStartEnd"
+            />
             <YAxis tickFormatter={formatNumericValue} stroke="#6b7280" />
             <Tooltip
-              formatter={(value) => formatNumericValue(value)}
+              formatter={formatNumericValue}
               contentStyle={{
-                background: "rgba(255, 255, 255, 0.95)",
-                borderRadius: "8px",
+                background: "rgba(255,255,255,0.95)",
+                borderRadius: 8,
                 border: "1px solid #e5e7eb",
                 boxShadow: "0 4px 12px rgba(0,0,0,0.1)",
               }}
             />
             <Legend />
-            {yAxisColumns.map((column, index) => (
-              <Bar
-                key={column.key}
-                dataKey={column.key}
-                fill={COLORS[index % COLORS.length]}
-                name={
-                  normalizeType(column.type) === "string"
-                    ? `Count of ${column.label || column.key}`
-                    : `${aggregationType} of ${column.label || column.key}`
-                }
-                stackId={stacked ? "a" : undefined}
-              />
-            ))}
+            {yAxisColumns.map((col, idx) => {
+              const isString = normalizeType(col.type) === "string";
+              return (
+                <Bar
+                  key={col.key}
+                  dataKey={col.key}
+                  fill={COLORS[idx % COLORS.length]}
+                  name={
+                    isString
+                      ? `Count of ${col.label || col.key}`
+                      : `${aggregationType} of ${col.label || col.key}`
+                  }
+                  stackId={stacked ? "a" : undefined}
+                />
+              );
+            })}
           </BarChart>
         );
+
       case "line":
         return (
           <LineChart {...commonProps}>
@@ -220,32 +239,36 @@ const ChartDisplay: React.FC<ChartDisplayProps> = ({
             <XAxis dataKey="name" stroke="#6b7280" />
             <YAxis tickFormatter={formatNumericValue} stroke="#6b7280" />
             <Tooltip
-              formatter={(value) => formatNumericValue(value)}
+              formatter={(v) => formatNumericValue(v)}
               contentStyle={{
-                background: "rgba(255, 255, 255, 0.95)",
-                borderRadius: "8px",
+                background: "rgba(255,255,255,0.95)",
+                borderRadius: 8,
                 border: "1px solid #e5e7eb",
                 boxShadow: "0 4px 12px rgba(0,0,0,0.1)",
               }}
             />
             <Legend />
-            {yAxisColumns.map((column, index) => (
-              <Line
-                key={column.key}
-                type="monotone"
-                dataKey={column.key}
-                stroke={COLORS[index % COLORS.length]}
-                name={
-                  normalizeType(column.type) === "string"
-                    ? `Count of ${column.label || column.key}`
-                    : `${aggregationType} of ${column.label || column.key}`
-                }
-                strokeWidth={2}
-                activeDot={{ r: 8 }}
-              />
-            ))}
+            {yAxisColumns.map((col, idx) => {
+              const isString = normalizeType(col.type) === "string";
+              return (
+                <Line
+                  key={col.key}
+                  type="monotone"
+                  dataKey={col.key}
+                  stroke={COLORS[idx % COLORS.length]}
+                  strokeWidth={2}
+                  activeDot={{ r: 8 }}
+                  name={
+                    isString
+                      ? `Count of ${col.label || col.key}`
+                      : `${aggregationType} of ${col.label || col.key}`
+                  }
+                />
+              );
+            })}
           </LineChart>
         );
+
       case "pie":
         const pieData = chartData.map((item) => ({
           name: item.name,
@@ -253,7 +276,7 @@ const ChartDisplay: React.FC<ChartDisplayProps> = ({
         }));
         return (
           <PieChart>
-            <Tooltip formatter={(value) => formatNumericValue(value)} />
+            <Tooltip formatter={(v) => formatNumericValue(v)} />
             <Legend />
             <Pie
               data={pieData}
@@ -267,64 +290,72 @@ const ChartDisplay: React.FC<ChartDisplayProps> = ({
                 `${name}: ${(percent * 100).toFixed(0)}%`
               }
             >
-              {pieData.map((entry, index) => (
-                <Cell
-                  key={`cell-${index}`}
-                  fill={COLORS[index % COLORS.length]}
-                />
+              {pieData.map((_, idx) => (
+                <Cell key={`cell-${idx}`} fill={COLORS[idx % COLORS.length]} />
               ))}
             </Pie>
           </PieChart>
         );
+
       case "area":
         return (
           <AreaChart {...commonProps}>
             <CartesianGrid strokeDasharray="3 3" stroke="#f0f0f0" />
             <XAxis dataKey="name" stroke="#6b7280" />
             <YAxis tickFormatter={formatNumericValue} stroke="#6b7280" />
-            <Tooltip formatter={(value) => formatNumericValue(value)} />
+            <Tooltip formatter={(v) => formatNumericValue(v)} />
             <Legend />
-            {yAxisColumns.map((column, index) => (
-              <Area
-                key={column.key}
-                type="monotone"
-                dataKey={column.key}
-                stroke={COLORS[index % COLORS.length]}
-                fillOpacity={0.8}
-                fill={`url(#color${index})`}
-                name={
-                  normalizeType(column.type) === "string"
-                    ? `Count of ${column.label || column.key}`
-                    : `${aggregationType} of ${column.label || column.key}`
-                }
-                stackId={stacked ? "a" : undefined}
-              />
-            ))}
+            {yAxisColumns.map((col, idx) => {
+              const isString = normalizeType(col.type) === "string";
+              return (
+                <Area
+                  key={col.key}
+                  type="monotone"
+                  dataKey={col.key}
+                  stroke={COLORS[idx % COLORS.length]}
+                  fillOpacity={0.8}
+                  fill={COLORS[idx % COLORS.length]}
+                  name={
+                    isString
+                      ? `Count of ${col.label || col.key}`
+                      : `${aggregationType} of ${col.label || col.key}`
+                  }
+                  stackId={stacked ? "a" : undefined}
+                />
+              );
+            })}
           </AreaChart>
         );
+
       case "composed":
         return (
           <ComposedChart {...commonProps}>
             <CartesianGrid strokeDasharray="3 3" stroke="#f0f0f0" />
             <XAxis dataKey="name" stroke="#6b7280" />
             <YAxis tickFormatter={formatNumericValue} stroke="#6b7280" />
-            <Tooltip formatter={(value) => formatNumericValue(value)} />
+            <Tooltip formatter={(v) => formatNumericValue(v)} />
             <Legend />
-            {yAxisColumns.map((column, index) => {
-              const isLine = index % 2 === 0;
-              const chartComponent = isLine ? Line : Bar;
-              return React.createElement(chartComponent, {
-                key: column.key,
-                dataKey: column.key,
-                name: column.label || column.key,
-                fill: COLORS[index % COLORS.length],
-                stroke: isLine ? COLORS[index % COLORS.length] : undefined,
-                type: isLine ? "monotone" : undefined,
-                stackId: !isLine ? "a" : undefined,
-              });
+            {yAxisColumns.map((col, idx) => {
+              const isLine = idx % 2 === 0;
+              const common = {
+                key: col.key,
+                dataKey: col.key,
+                name: col.label || col.key,
+                fill: COLORS[idx % COLORS.length],
+              };
+              return isLine ? (
+                <Line
+                  {...common}
+                  stroke={COLORS[idx % COLORS.length]}
+                  type="monotone"
+                />
+              ) : (
+                <Bar {...common} stackId="a" />
+              );
             })}
           </ComposedChart>
         );
+
       default:
         return null;
     }

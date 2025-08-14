@@ -19,7 +19,14 @@ import {
 } from "recharts";
 import { Column, DataRow } from '../types';
 import ChartDropZone from './ChartDropZone';
-import { BarChart3, LineChart as LineChartIcon, PieChart as PieChartIcon, Activity, RefreshCw, Layers } from 'lucide-react';
+import {
+  BarChart3,
+  LineChart as LineChartIcon,
+  PieChart as PieChartIcon,
+  Activity,
+  RefreshCw,
+  Layers,
+} from "lucide-react";
 
 interface ChartBuilderProps {
   data: DataRow[];
@@ -29,116 +36,102 @@ const ChartBuilder: React.FC<ChartBuilderProps> = ({ data }) => {
   const [xAxisColumn, setXAxisColumn] = useState<Column | null>(null);
   const [yAxisColumns, setYAxisColumns] = useState<Column[]>([]);
   const [groupByColumn, setGroupByColumn] = useState<Column | null>(null);
-  const [chartType, setChartType] = useState<'bar' | 'line' | 'pie' | 'area' | 'composed'>('bar');
+  const [chartType, setChartType] = useState<
+    "bar" | "line" | "pie" | "area" | "composed"
+  >("bar");
   const [stacked, setStacked] = useState(false);
 
-  // Memoized unique group keys for stacked charts
-  const uniqueGroupKeys = useMemo(() => {
-    if (!groupByColumn || data.length === 0) return [];
-    const keys = Array.from(
-      new Set(data.map((item) => String(item[groupByColumn.key])))
-    );
-    return keys;
-  }, [data, groupByColumn]);
+  // 1) Only treat groupByColumn as “effective” if it’s different from xAxisColumn
+  const effectiveGroupByColumn = useMemo<Column | null>(() => {
+    if (!groupByColumn) return null;
+    if (xAxisColumn && groupByColumn.key === xAxisColumn.key) {
+      return null;
+    }
+    return groupByColumn;
+  }, [groupByColumn, xAxisColumn]);
 
-  // Memoized chart data based on selected columns and grouping
-  const chartData = useMemo(() => {
-    // If we don't have at least an X and Y axis, we can't build a chart.
+  // 2) Unique keys for stacking come from the effective group
+  const uniqueGroupKeys = useMemo<string[]>(() => {
+    if (!effectiveGroupByColumn || data.length === 0) return [];
+    return Array.from(
+      new Set(data.map((item) => String(item[effectiveGroupByColumn.key])))
+    );
+  }, [data, effectiveGroupByColumn]);
+
+  // 3) Build chartData either pivoted by effectiveGroupByColumn or simple
+  const chartData = useMemo<any[]>(() => {
     if (!xAxisColumn || yAxisColumns.length === 0) return [];
 
-    // Logic for grouped data (pivoting)
-    if (groupByColumn) {
-      // The goal is to transform the data into a structure like:
-      // [{ name: 'Category 1', GroupA: valueA, GroupB: valueB }, ...]
-      const pivotedDataMap = new Map();
-      const yAxisKey = yAxisColumns[0].key;
+    // Pivoted case
+    if (effectiveGroupByColumn) {
+      const pivoted = new Map<string, any>();
+      const yKey = yAxisColumns[0].key;
 
       data.forEach((item) => {
-        const xValue = String(item[xAxisColumn.key]);
-        const groupValue = String(item[groupByColumn.key]);
-        const yValue = item[yAxisKey];
+        const xVal = String(item[xAxisColumn.key]);
+        const gVal = String(item[effectiveGroupByColumn.key]);
+        const yVal = item[yKey];
 
-        // Create a new entry for the X-axis value if it doesn't exist
-        if (!pivotedDataMap.has(xValue)) {
-          pivotedDataMap.set(xValue, { name: xValue });
+        if (!pivoted.has(xVal)) {
+          pivoted.set(xVal, { name: xVal });
         }
-
-        // Get the existing entry and aggregate the yValue to the correct group key
-        const existingEntry = pivotedDataMap.get(xValue);
-
-        // When grouping, we will always count occurrences for the grouped categories.
-        existingEntry[groupValue] = (existingEntry[groupValue] || 0) + 1;
+        const row = pivoted.get(xVal);
+        // counting occurrences
+        row[gVal] = (row[gVal] || 0) + 1;
       });
 
-      return Array.from(pivotedDataMap.values());
-    } else {
-      // Simple grouping by X-axis only
-      const grouped = data.reduce((acc, item) => {
-        const xValue = String(item[xAxisColumn.key]);
-
-        if (!acc[xValue]) {
-          acc[xValue] = { name: xValue };
-          yAxisColumns.forEach((col) => {
-            acc[xValue][col.label] = 0;
-          });
-        }
-
-        yAxisColumns.forEach((col) => {
-          const value = item[col.key];
-          if (typeof value === "number") {
-            acc[xValue][col.label] += value;
-          }
-        });
-
-        return acc;
-      }, {} as Record<string, any>);
-
-      return Object.values(grouped);
+      return Array.from(pivoted.values());
     }
-  }, [data, xAxisColumn, yAxisColumns, groupByColumn]);
 
-  // Memoized data for pie charts
+    // Simple sum‐up case
+    const grouped: Record<string, any> = {};
+    data.forEach((item) => {
+      const xVal = String(item[xAxisColumn.key]);
+      if (!grouped[xVal]) {
+        grouped[xVal] = { name: xVal };
+        yAxisColumns.forEach((c) => {
+          grouped[xVal][c.label] = 0;
+        });
+      }
+      yAxisColumns.forEach((c) => {
+        const v = item[c.key];
+        if (typeof v === "number") {
+          grouped[xVal][c.label] += v;
+        }
+      });
+    });
+    return Object.values(grouped);
+  }, [data, xAxisColumn, yAxisColumns, effectiveGroupByColumn]);
+
+  // Pie uses only xAxis + yAxis
   const pieChartData = useMemo(() => {
     if (!xAxisColumn || yAxisColumns.length === 0) return [];
+    const firstY = yAxisColumns[0];
+    const acc: Record<string, number> = {};
 
-    const firstYColumn = yAxisColumns[0];
-    const grouped = data.reduce((acc, item) => {
-      const xValue = String(item[xAxisColumn.key]);
-      const yValue = item[firstYColumn.key];
-
-      if (typeof yValue === "number") {
-        acc[xValue] = (acc[xValue] || 0) + yValue;
+    data.forEach((item) => {
+      const xVal = String(item[xAxisColumn.key]);
+      const yVal = item[firstY.key];
+      if (typeof yVal === "number") {
+        acc[xVal] = (acc[xVal] || 0) + yVal;
       }
+    });
 
-      return acc;
-    }, {} as Record<string, number>);
-
-    return Object.entries(grouped).map(([key, value]) => ({
-      name: key,
-      value: value,
-    }));
+    return Object.entries(acc).map(([name, value]) => ({ name, value }));
   }, [data, xAxisColumn, yAxisColumns]);
 
   const handleDrop = (column: Column, axis: "x" | "y" | "group") => {
-    if (axis === "x") {
-      setXAxisColumn(column);
-    } else if (axis === "y") {
-      if (!yAxisColumns.find((col) => col.key === column.key)) {
-        setYAxisColumns((prev) => [...prev, column]);
-      }
-    } else if (axis === "group") {
-      setGroupByColumn(column);
-    }
+    if (axis === "x") setXAxisColumn(column);
+    if (axis === "y" && !yAxisColumns.find((c) => c.key === column.key))
+      setYAxisColumns((prev) => [...prev, column]);
+    if (axis === "group") setGroupByColumn(column);
   };
 
   const handleRemove = (column: Column, axis: "x" | "y" | "group") => {
-    if (axis === "x") {
-      setXAxisColumn(null);
-    } else if (axis === "y") {
-      setYAxisColumns((prev) => prev.filter((col) => col.key !== column.key));
-    } else if (axis === "group") {
-      setGroupByColumn(null);
-    }
+    if (axis === "x") setXAxisColumn(null);
+    if (axis === "y")
+      setYAxisColumns((prev) => prev.filter((c) => c.key !== column.key));
+    if (axis === "group") setGroupByColumn(null);
   };
 
   const handleReset = () => {
@@ -191,23 +184,20 @@ const ChartBuilder: React.FC<ChartBuilderProps> = ({ data }) => {
               <YAxis />
               <Tooltip />
               <Legend />
-              {/* Conditional rendering for stacked vs. grouped bars */}
-              {groupByColumn && uniqueGroupKeys.length > 0
-                ? // Render bars for each unique group key
-                  uniqueGroupKeys.map((key, index) => (
+              {effectiveGroupByColumn && uniqueGroupKeys.length > 0
+                ? uniqueGroupKeys.map((key, i) => (
                     <Bar
-                      key={`${key}-${index}`}
+                      key={key}
                       dataKey={key}
                       stackId="a"
-                      fill={COLORS[index % COLORS.length]}
+                      fill={COLORS[i % COLORS.length]}
                     />
                   ))
-                : // Render bars for each Y-axis column
-                  yAxisColumns.map((column, index) => (
+                : yAxisColumns.map((col, i) => (
                     <Bar
-                      key={`${column.key}-${index}`}
-                      dataKey={column.label}
-                      fill={COLORS[index % COLORS.length]}
+                      key={col.key}
+                      dataKey={col.label}
+                      fill={COLORS[i % COLORS.length]}
                       stackId={stacked ? "a" : undefined}
                     />
                   ))}
@@ -224,12 +214,12 @@ const ChartBuilder: React.FC<ChartBuilderProps> = ({ data }) => {
               <YAxis />
               <Tooltip />
               <Legend />
-              {yAxisColumns.map((column, index) => (
+              {yAxisColumns.map((col, i) => (
                 <Line
-                  key={`${column.key}-${index}`}
+                  key={col.key}
                   type="monotone"
-                  dataKey={column.label}
-                  stroke={COLORS[index % COLORS.length]}
+                  dataKey={col.label}
+                  stroke={COLORS[i % COLORS.length]}
                   strokeWidth={2}
                 />
               ))}
@@ -246,13 +236,13 @@ const ChartBuilder: React.FC<ChartBuilderProps> = ({ data }) => {
               <YAxis />
               <Tooltip />
               <Legend />
-              {yAxisColumns.map((column, index) => (
+              {yAxisColumns.map((col, i) => (
                 <Area
-                  key={`${column.key}-${index}`}
+                  key={col.key}
                   type="monotone"
-                  dataKey={column.label}
-                  stroke={COLORS[index % COLORS.length]}
-                  fill={COLORS[index % COLORS.length]}
+                  dataKey={col.label}
+                  stroke={COLORS[i % COLORS.length]}
+                  fill={COLORS[i % COLORS.length]}
                   fillOpacity={0.3}
                   stackId={stacked ? "a" : undefined}
                 />
@@ -270,27 +260,23 @@ const ChartBuilder: React.FC<ChartBuilderProps> = ({ data }) => {
               <YAxis />
               <Tooltip />
               <Legend />
-              {yAxisColumns.map((column, index) => {
-                if (index % 2 === 0) {
-                  return (
-                    <Bar
-                      key={`${column.key}-${index}`}
-                      dataKey={column.label}
-                      fill={COLORS[index % COLORS.length]}
-                    />
-                  );
-                } else {
-                  return (
-                    <Line
-                      key={`${column.key}-${index}`}
-                      type="monotone"
-                      dataKey={column.label}
-                      stroke={COLORS[index % COLORS.length]}
-                      strokeWidth={2}
-                    />
-                  );
-                }
-              })}
+              {yAxisColumns.map((col, i) =>
+                i % 2 === 0 ? (
+                  <Bar
+                    key={col.key}
+                    dataKey={col.label}
+                    fill={COLORS[i % COLORS.length]}
+                  />
+                ) : (
+                  <Line
+                    key={col.key}
+                    type="monotone"
+                    dataKey={col.label}
+                    stroke={COLORS[i % COLORS.length]}
+                    strokeWidth={2}
+                  />
+                )
+              )}
             </ComposedChart>
           </ResponsiveContainer>
         );
@@ -311,11 +297,8 @@ const ChartBuilder: React.FC<ChartBuilderProps> = ({ data }) => {
                 fill="#8884d8"
                 dataKey="value"
               >
-                {pieChartData.map((entry, index) => (
-                  <Cell
-                    key={`cell-${index}`}
-                    fill={COLORS[index % COLORS.length]}
-                  />
+                {pieChartData.map((entry, i) => (
+                  <Cell key={`cell-${i}`} fill={COLORS[i % COLORS.length]} />
                 ))}
               </Pie>
               <Tooltip />
@@ -415,36 +398,37 @@ const ChartBuilder: React.FC<ChartBuilderProps> = ({ data }) => {
             ))}
           </div>
 
-          {/* New Bar Style toggle for side-by-side vs stacked */}
-          {chartType === "bar" && yAxisColumns.length > 1 && !groupByColumn && (
-            <div className="mt-4">
-              <label className="block text-sm font-medium text-slate-700 mb-2">
-                Bar Style
-              </label>
-              <div className="flex rounded-lg border border-slate-300 overflow-hidden">
-                <button
-                  onClick={() => setStacked(false)}
-                  className={`flex-1 py-2 text-sm font-medium transition-colors ${
-                    !stacked
-                      ? "bg-blue-600 text-white"
-                      : "bg-slate-100 text-slate-700 hover:bg-slate-200"
-                  }`}
-                >
-                  Side-by-side
-                </button>
-                <button
-                  onClick={() => setStacked(true)}
-                  className={`flex-1 py-2 text-sm font-medium transition-colors ${
-                    stacked
-                      ? "bg-blue-600 text-white"
-                      : "bg-slate-100 text-slate-700 hover:bg-slate-200"
-                  }`}
-                >
-                  Stacked
-                </button>
+          {chartType === "bar" &&
+            yAxisColumns.length > 1 &&
+            !effectiveGroupByColumn && (
+              <div className="mt-4">
+                <label className="block text-sm font-medium text-slate-700 mb-2">
+                  Bar Style
+                </label>
+                <div className="flex rounded-lg border border-slate-300 overflow-hidden">
+                  <button
+                    onClick={() => setStacked(false)}
+                    className={`flex-1 py-2 text-sm font-medium transition-colors ${
+                      !stacked
+                        ? "bg-blue-600 text-white"
+                        : "bg-slate-100 text-slate-700 hover:bg-slate-200"
+                    }`}
+                  >
+                    Side-by-side
+                  </button>
+                  <button
+                    onClick={() => setStacked(true)}
+                    className={`flex-1 py-2 text-sm font-medium transition-colors ${
+                      stacked
+                        ? "bg-blue-600 text-white"
+                        : "bg-slate-100 text-slate-700 hover:bg-slate-200"
+                    }`}
+                  >
+                    Stacked
+                  </button>
+                </div>
               </div>
-            </div>
-          )}
+            )}
         </div>
 
         <div className="bg-slate-50 rounded-lg p-6">
@@ -464,7 +448,7 @@ const ChartBuilder: React.FC<ChartBuilderProps> = ({ data }) => {
                 {chartType === "bar" && (
                   <p>
                     • Bar Style:{" "}
-                    {groupByColumn
+                    {effectiveGroupByColumn
                       ? "Stacked"
                       : stacked
                       ? "Stacked"
