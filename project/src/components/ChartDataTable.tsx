@@ -1,4 +1,4 @@
-import React, { useState, useMemo } from "react";
+import React, { useState, useMemo, useEffect } from "react";
 import {
   ChevronUp,
   ChevronDown,
@@ -7,6 +7,7 @@ import {
   Table,
 } from "lucide-react";
 
+// Assuming DatabaseColumn and other types are defined in '../services/api'
 import { DatabaseColumn } from "../services/api";
 
 interface ChartDataTableProps {
@@ -97,50 +98,81 @@ const ChartDataTable: React.FC<ChartDataTableProps> = ({
       colorScheme: any;
     }[] = [];
 
-    let colorIndex = 0;
-
-    if (xAxisColumn) {
-      columns.push({
-        key: "name",
-        label: xAxisColumn.label,
-        isNumeric: false,
-        type: "category",
-        colorScheme: getColumnColor("category", colorIndex++),
-      });
-    }
-
+    // Check if the data is grouped based on the `groupByColumn`
     if (groupByColumn) {
-      columns.push({
-        key: groupByColumn.key,
-        label: groupByColumn.label,
-        isNumeric: false,
-        type: "group",
-        colorScheme: getColumnColor("group", colorIndex++),
+      // Create the main 'Name' column from xAxisColumn
+      if (xAxisColumn) {
+        columns.push({
+          key: "name",
+          label: xAxisColumn.label,
+          isNumeric: false,
+          type: "category",
+          colorScheme: getColumnColor("category", 0),
+        });
+      }
+
+      // Dynamically get unique keys from the grouped data for column headers
+      const uniqueGroupKeys = new Set<string>();
+      chartData.forEach((row) => {
+        Object.keys(row).forEach((key) => {
+          if (key !== "name") {
+            uniqueGroupKeys.add(key);
+          }
+        });
+      });
+
+      // Sort the dynamic keys alphabetically for consistent column order
+      const sortedGroupKeys = Array.from(uniqueGroupKeys).sort();
+
+      // Create a column for each unique group key
+      let colorIndex = 1; // Start from index 1 to not clash with 'Name'
+      sortedGroupKeys.forEach((key) => {
+        // Assume all dynamically generated columns are numeric metrics
+        // You might need to adjust this logic based on your actual data types
+        columns.push({
+          key: key,
+          label: key, // Use the key as the label
+          isNumeric: true, // Assuming aggregated values are numbers
+          type: "metric",
+          colorScheme: getColumnColor("metric", colorIndex++),
+        });
+      });
+    } else {
+      // This is the original logic for non-grouped data
+      let colorIndex = 0;
+
+      if (xAxisColumn) {
+        columns.push({
+          key: xAxisColumn.key,
+          label: xAxisColumn.label,
+          isNumeric: normalizeType(xAxisColumn.type) === "number",
+          type: "category",
+          colorScheme: getColumnColor("category", colorIndex++),
+        });
+      }
+      yAxisColumns.forEach((col) => {
+        const isNumeric = normalizeType(col.type) === "number";
+        columns.push({
+          key: col.key,
+          label: `${col.label} (${
+            isNumeric && aggregationType !== "COUNT"
+              ? aggregationType
+              : normalizeType(col.type) === "string"
+              ? "COUNT"
+              : ""
+          })`,
+          isNumeric: isNumeric,
+          type: "metric",
+          colorScheme: getColumnColor("metric", colorIndex++),
+        });
       });
     }
-
-    yAxisColumns.forEach((col) => {
-      const isNumeric = normalizeType(col.type) === "number";
-      columns.push({
-        key: col.key,
-        label: `${col.label} (${
-          isNumeric && aggregationType !== "COUNT"
-            ? aggregationType
-            : normalizeType(col.type) === "string"
-            ? "COUNT"
-            : ""
-        })`,
-        isNumeric: isNumeric,
-        type: "metric",
-        colorScheme: getColumnColor("metric", colorIndex++),
-      });
-    });
 
     return columns;
-  }, [xAxisColumn, yAxisColumns, groupByColumn, aggregationType]);
+  }, [chartData, xAxisColumn, yAxisColumns, groupByColumn, aggregationType]);
 
   // Initialize column visibility
-  React.useEffect(() => {
+  useEffect(() => {
     const initialVisibility: ColumnVisibility = {};
     tableColumns.forEach((col) => {
       initialVisibility[col.key] = true;
@@ -171,6 +203,7 @@ const ChartDataTable: React.FC<ChartDataTableProps> = ({
   }, [chartData, searchTerm, sortConfig]);
 
   // Pagination
+  const totalPages = Math.ceil(processedData.length / pageSize);
   const paginatedData = useMemo(() => {
     const startIndex = (currentPage - 1) * pageSize;
     return processedData.slice(startIndex, startIndex + pageSize);
@@ -189,8 +222,6 @@ const ChartDataTable: React.FC<ChartDataTableProps> = ({
     setColumnVisibility((prev) => ({ ...prev, [key]: !prev[key] }));
   };
 
-  // Enhanced cell styling with colors
-  // This function is now empty to remove all inline color styles
   const getCellStyle = (value: any, column: any) => {
     return {};
   };
@@ -215,7 +246,6 @@ const ChartDataTable: React.FC<ChartDataTableProps> = ({
   const visibleColumns = tableColumns.filter(
     (col) => columnVisibility[col.key]
   );
-  const totalPages = Math.ceil(processedData.length / pageSize);
 
   return (
     <div className="bg-gradient-to-br from-white to-slate-50 rounded-xl shadow-sm border border-slate-200 overflow-hidden">
