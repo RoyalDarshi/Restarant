@@ -1,18 +1,19 @@
-import express, { json, urlencoded } from 'express';
-import cors from 'cors';
+import express from 'express';
 import dotenv from 'dotenv';
-dotenv.config();
+import cors from 'cors';
 
 import databaseRoutes from './routes/database.js';
 import analyticsRoutes from './routes/analytics.js';
+
+dotenv.config();
 
 const app = express();
 const PORT = process.env.PORT || 3001;
 
 // Middleware
 app.use(cors());
-app.use(json());
-app.use(urlencoded({ extended: true }));
+app.use(express.json());
+app.use(express.urlencoded({ extended: true }));
 
 // Routes
 app.use('/api/database', databaseRoutes);
@@ -48,17 +49,3 @@ app.listen(PORT, () => {
   console.log(`🚀 Analytics API Server running on port ${PORT}`);
   console.log(`📊 Health check: http://localhost:${PORT}/api/health`);
 });
-
-// import express from "express";
-// import connection from "./database/connection.js";
-
-// const app = express();
-// const PORT = 3001;
-
-// app.get("/", (req, res) => {
-//   res.send(`DB Status: ${connection.status}`);
-// });
-
-// app.listen(PORT, () => {
-//   console.log(`✅ Server running at http://localhost:${PORT}`);
-// });

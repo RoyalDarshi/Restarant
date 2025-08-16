@@ -1,16 +1,6 @@
 import { Router } from "express";
-import pkg from "pg";
-const { types } = pkg;
-
+import { _query } from "../database/connection.js";  // Importing _query from mysql2 connection
 const router = Router();
-import pool from "../database/connection.js";
-const _query = pool.query.bind(pool);
-
-// --- Setup pg parser override for BIGINT (OID 20) ---
-types.setTypeParser(20, (val) => {
-  const parsed = parseInt(val, 10);
-  return Number.isSafeInteger(parsed) ? parsed : val;
-});
 
 // POST /analytics/aggregate
 router.post("/aggregate", async (req, res) => {
@@ -79,7 +69,7 @@ router.post("/aggregate", async (req, res) => {
       });
     }
 
-    const quoted = (col) => `"${col}"`;
+    const quoted = (col) => `\`${col}\``; // MySQL uses backticks for identifiers
     const needsJoin = secondaryTableName && joinColumn;
 
     const primaryTableAlias = "t1";
@@ -104,44 +94,36 @@ router.post("/aggregate", async (req, res) => {
 
     // Group by (if exists and not same as xAxis)
     if (groupBy && groupBy.key !== xAxis.key) {
-      // FIX: Use the actual column key as the alias
       selectParts.push(
         `${getQualifiedColumn(groupBy)} AS ${quoted(groupBy.key)}`
       );
       groupByParts.push(getQualifiedColumn(groupBy));
     }
 
-    // Y-axes with aggregation + cast to BIGINT
+    // Y-axes with aggregation
     yAxes.forEach((col, idx) => {
       const agg = aggregationTypes[idx];
       selectParts.push(
-        `CAST(${agg}(${getQualifiedColumn(col)}) AS BIGINT) AS ${quoted(
-          col.key
-        )}`
+        `CAST(${agg}(${getQualifiedColumn(col)}) AS SIGNED) AS ${quoted(col.key)}`
       );
     });
 
     // FROM + JOIN
-    let query = `SELECT ${selectParts.join(", ")} FROM ${quoted(
-      tableName
-    )} AS ${primaryTableAlias}`;
+    let query = `SELECT ${selectParts.join(", ")} FROM ${quoted(tableName)} AS ${primaryTableAlias}`;
     if (needsJoin) {
-      query += ` INNER JOIN ${quoted(
-        secondaryTableName
-      )} AS ${secondaryTableAlias} ON ${primaryTableAlias}.${quoted(
-        joinColumn
-      )} = ${secondaryTableAlias}.${quoted(joinColumn)}`;
+      query += ` INNER JOIN ${quoted(secondaryTableName)} AS ${secondaryTableAlias} ON ${primaryTableAlias}.${quoted(joinColumn)} = ${secondaryTableAlias}.${quoted(joinColumn)}`;
     }
 
     const queryParams = [];
 
+    // WHERE clause (
     // WHERE clause (filters)
     if (filters.length > 0) {
       const whereParts = filters.map((filter, i) => {
         queryParams.push(filter.value);
         return `${primaryTableAlias}.${quoted(filter.column)} ${
           filter.operator
-        } $${queryParams.length}`;
+        } ?`;  // Using `?` as the placeholder for the filter value
       });
       query += ` WHERE ${whereParts.join(" AND ")}`;
     }
@@ -152,11 +134,12 @@ router.post("/aggregate", async (req, res) => {
 
     console.log("Generated SQL Query:", query);
 
+    // Execute the query and return the results
     const result = await _query(query, queryParams);
 
     res.json({
       success: true,
-      data: result.rows,
+      data: result,
       query,
     });
   } catch (error) {
