@@ -18,7 +18,7 @@ import ChartDataTable from "./ChartDataTable";
 import SqlQueryDisplay from "./SqlQueryDisplay";
 import ChartControls from "./ChartControls";
 import ChartDisplay from "./ChartDisplay";
-import { Download, Database, Layers } from "lucide-react";
+import { Download, Database } from "lucide-react";
 import { AggregationType, ChartType } from "./types";
 import { formatNumericValue } from "./utils";
 
@@ -37,6 +37,7 @@ const DynamicChartBuilder: React.FC<DynamicChartBuilderProps> = ({
   secondaryColumns,
   allTableSchemas,
 }) => {
+  // ─────── State ──────────────────────────────────────────────────────────────
   const [xAxisColumn, setXAxisColumn] = useState<DatabaseColumn | null>(null);
   const [yAxisColumns, setYAxisColumns] = useState<DatabaseColumn[]>([]);
   const [groupByColumn, setGroupByColumn] = useState<DatabaseColumn | null>(
@@ -57,6 +58,8 @@ const DynamicChartBuilder: React.FC<DynamicChartBuilderProps> = ({
 
   const chartContainerRef = useRef<HTMLDivElement>(null);
 
+  // ─────── Helpers ────────────────────────────────────────────────────────────
+
   // Normalize SQL types to string|number
   const normalizeType = (type: string): "string" | "number" => {
     const lower = type.toLowerCase();
@@ -72,82 +75,85 @@ const DynamicChartBuilder: React.FC<DynamicChartBuilderProps> = ({
     return "string";
   };
 
-  // ─── Ignore grouping if it's the same column as X ────────────────
+  // Ignore grouping if it's the same column as X
   const effectiveGroupByColumn = useMemo<DatabaseColumn | null>(() => {
     if (!groupByColumn || !xAxisColumn) return null;
     return groupByColumn.key === xAxisColumn.key ? null : groupByColumn;
   }, [groupByColumn, xAxisColumn]);
-  // ────────────────────────────────────────────────────────────────
 
+  // Infer the join column by matching key+type in both schemas
+  const inferredJoinColumn = useMemo<string | undefined>(() => {
+    if (!secondaryTableName) return undefined;
+    const pSchema = allTableSchemas.find((s) => s.tableName === tableName);
+    const sSchema = allTableSchemas.find(
+      (s) => s.tableName === secondaryTableName
+    );
+    if (!pSchema || !sSchema) return undefined;
+    for (const pCol of pSchema.columns) {
+      for (const sCol of sSchema.columns) {
+        if (pCol.key === sCol.key && pCol.type === sCol.type) {
+          return pCol.key;
+        }
+      }
+    }
+    return undefined;
+  }, [tableName, secondaryTableName, allTableSchemas]);
+
+  // Build the SQL preview
   const constructSqlQuery = useCallback(() => {
     if (!xAxisColumn || yAxisColumns.length === 0) return "";
 
-    const primaryTable = tableName;
-    const secondaryTable = secondaryTableName;
-    const selectParts: string[] = [];
-    const groupByParts: string[] = [];
-    let fromClause = `"${primaryTable}" AS t1`;
-    let joinClause = "";
-    let joinColumnKey: string | undefined;
+    const pAlias = "t1";
+    const sAlias = "t2";
+    const sel: string[] = [];
+    const grp: string[] = [];
 
-    // Determine if we need a join
-    const usesSecondaryTable =
-      secondaryTable &&
-      (xAxisColumn.tableName === secondaryTable ||
-        yAxisColumns.some((col) => col.tableName === secondaryTable) ||
-        effectiveGroupByColumn?.tableName === secondaryTable);
+    // Do we need to join?
+    const usesSecondary =
+      secondaryTableName &&
+      inferredJoinColumn &&
+      (xAxisColumn.tableName === secondaryTableName ||
+        yAxisColumns.some((c) => c.tableName === secondaryTableName) ||
+        effectiveGroupByColumn?.tableName === secondaryTableName);
 
-    if (usesSecondaryTable && secondaryTable) {
-      const primarySchema = allTableSchemas.find(
-        (s) => s.tableName === primaryTable
-      );
-      const secondarySchema = allTableSchemas.find(
-        (s) => s.tableName === secondaryTable
-      );
-      if (primarySchema && secondarySchema) {
-        for (const p of primarySchema.columns) {
-          for (const s of secondarySchema.columns) {
-            if (p.key === s.key && p.type === s.type) {
-              joinColumnKey = p.key;
-              break;
-            }
-          }
-          if (joinColumnKey) break;
-        }
-      }
-      if (joinColumnKey) {
-        joinClause = ` INNER JOIN "${secondaryTable}" AS t2 ON t1."${joinColumnKey}" = t2."${joinColumnKey}"`;
-      }
-    }
-
+    // Qualifier
     const qual = (col: DatabaseColumn) =>
-      usesSecondaryTable && col.tableName === secondaryTable
-        ? `t2."${col.key}"`
-        : `t1."${col.key}"`;
+      usesSecondary && col.tableName === secondaryTableName
+        ? `${sAlias}."${col.key}"`
+        : `${pAlias}."${col.key}"`;
 
     // X-axis
-    selectParts.push(`${qual(xAxisColumn)} AS name`);
-    groupByParts.push(qual(xAxisColumn));
+    sel.push(`${qual(xAxisColumn)} AS name`);
+    grp.push(qual(xAxisColumn));
 
-    // Group-by only if effective
+    // Group-by
     if (effectiveGroupByColumn) {
-      selectParts.push(qual(effectiveGroupByColumn));
-      groupByParts.push(qual(effectiveGroupByColumn));
+      sel.push(`${qual(effectiveGroupByColumn)}`);
+      grp.push(qual(effectiveGroupByColumn));
     }
 
     // Y-axes
     yAxisColumns.forEach((col) => {
-      const colType = normalizeType(col.type);
-      const agg = colType === "string" ? "COUNT" : aggregationType;
-      selectParts.push(`${agg}(${qual(col)}) AS "${col.key}"`);
+      const agg =
+        normalizeType(col.type) === "string" ? "COUNT" : aggregationType;
+      sel.push(`${agg}(${qual(col)}) AS "${col.key}"`);
     });
 
-    let q = `SELECT ${selectParts.join(", ")} FROM ${fromClause}${joinClause}`;
-    if (groupByParts.length) {
-      q += ` GROUP BY ${groupByParts.join(", ")}`;
-      q += ` ORDER BY ${groupByParts.join(", ")}`;
+    // FROM / JOIN
+    let sql = `SELECT ${sel.join(", ")}\nFROM "${tableName}" AS ${pAlias}`;
+    if (usesSecondary && secondaryTableName && inferredJoinColumn) {
+      sql +=
+        `\nINNER JOIN "${secondaryTableName}" AS ${sAlias}` +
+        `\n  ON ${pAlias}."${inferredJoinColumn}"` +
+        ` = ${sAlias}."${inferredJoinColumn}"`;
     }
-    return q;
+
+    if (grp.length) {
+      sql += `\nGROUP BY ${grp.join(", ")}`;
+      sql += `\nORDER BY ${grp.join(", ")}`;
+    }
+
+    return sql;
   }, [
     tableName,
     xAxisColumn,
@@ -155,9 +161,10 @@ const DynamicChartBuilder: React.FC<DynamicChartBuilderProps> = ({
     effectiveGroupByColumn,
     aggregationType,
     secondaryTableName,
-    allTableSchemas,
+    inferredJoinColumn,
   ]);
 
+  // ─────── Data Fetch ──────────────────────────────────────────────────────────
   useEffect(() => {
     if (!xAxisColumn || yAxisColumns.length === 0) {
       setChartData([]);
@@ -168,17 +175,17 @@ const DynamicChartBuilder: React.FC<DynamicChartBuilderProps> = ({
     setLoading(true);
     setError(null);
 
-    const sqlQuery = constructSqlQuery();
-    setGeneratedQuery(sqlQuery);
+    const sqlPreview = constructSqlQuery();
+    setGeneratedQuery(sqlPreview);
 
-    // Only force stacked when we have a valid group
+    // stacking logic
     if (effectiveGroupByColumn && chartType === "bar") {
       setStacked(true);
     } else {
       setStacked(yAxisColumns.length > 1);
     }
 
-    // Build request payload
+    // build payload
     const aggTypes = yAxisColumns.map((col) =>
       normalizeType(col.type) === "string" ? "COUNT" : aggregationType
     );
@@ -204,7 +211,7 @@ const DynamicChartBuilder: React.FC<DynamicChartBuilderProps> = ({
       groupBy: gReq,
       aggregationTypes: aggTypes,
       secondaryTableName,
-      joinColumn: undefined, // service infers from SQL
+      joinColumn: inferredJoinColumn, // ← actually pass it now
     };
 
     apiService
@@ -213,27 +220,26 @@ const DynamicChartBuilder: React.FC<DynamicChartBuilderProps> = ({
         if (resp.success && resp.data) {
           let processed = resp.data;
 
-          // Pivot only if effective grouping
-          if (effectiveGroupByColumn && processed.length > 0) {
+          // pivot if grouped
+          if (effectiveGroupByColumn && processed.length) {
             const pivot: any[] = [];
-            processed.forEach((row) => {
+            resp.data.forEach((row) => {
               const x = row.name;
               const g = row[effectiveGroupByColumn.key];
               const y = row[yAxisColumns[0].key];
-              let e = pivot.find((e) => e.name === x);
-              if (!e) {
-                e = { name: x };
-                pivot.push(e);
+              let entry = pivot.find((e) => e.name === x);
+              if (!entry) {
+                entry = { name: x };
+                pivot.push(entry);
               }
-              e[g] = y;
+              entry[g] = y;
             });
             processed = pivot;
-
-            // collect unique group keys
-            const keys = Array.from(
-              new Set(resp.data.map((r) => r[effectiveGroupByColumn.key]))
+            setUniqueGroupKeys(
+              Array.from(
+                new Set(resp.data.map((r) => r[effectiveGroupByColumn.key]))
+              )
             );
-            setUniqueGroupKeys(keys);
           } else {
             setUniqueGroupKeys([]);
           }
@@ -261,26 +267,25 @@ const DynamicChartBuilder: React.FC<DynamicChartBuilderProps> = ({
     aggregationType,
     constructSqlQuery,
     secondaryTableName,
-    allTableSchemas,
+    inferredJoinColumn,
     chartType,
   ]);
 
-  const handleDrop = (column: DatabaseColumn, axis: "x" | "y" | "group") => {
-    if (axis === "x") setXAxisColumn(column);
+  // ─────── Handlers ───────────────────────────────────────────────────────────
+  const handleDrop = (col: DatabaseColumn, axis: "x" | "y" | "group") => {
+    if (axis === "x") setXAxisColumn(col);
     if (axis === "y")
       setYAxisColumns((prev) =>
-        prev.some((c) => c.key === column.key) ? prev : [...prev, column]
+        prev.some((c) => c.key === col.key) ? prev : [...prev, col]
       );
-    if (axis === "group") setGroupByColumn(column);
+    if (axis === "group") setGroupByColumn(col);
   };
-
-  const handleRemove = (column: DatabaseColumn, axis: "x" | "y" | "group") => {
+  const handleRemove = (col: DatabaseColumn, axis: "x" | "y" | "group") => {
     if (axis === "x") setXAxisColumn(null);
     if (axis === "y")
-      setYAxisColumns((prev) => prev.filter((c) => c.key !== column.key));
+      setYAxisColumns((prev) => prev.filter((c) => c.key !== col.key));
     if (axis === "group") setGroupByColumn(null);
   };
-
   const handleDownloadGraph = () => {
     if (!chartContainerRef.current) return;
     html2canvas(chartContainerRef.current, { useCORS: true, scale: 2 }).then(
@@ -292,9 +297,8 @@ const DynamicChartBuilder: React.FC<DynamicChartBuilderProps> = ({
       }
     );
   };
-
   const handleDownloadTable = () => {
-    if (chartData.length === 0) return;
+    if (!chartData.length) return;
     const headers = [
       xAxisColumn?.label || xAxisColumn?.key || "X-Axis",
       ...(effectiveGroupByColumn
@@ -327,6 +331,7 @@ const DynamicChartBuilder: React.FC<DynamicChartBuilderProps> = ({
     URL.revokeObjectURL(link.href);
   };
 
+  // ─────── Render ──────────────────────────────────────────────────────────────
   if (!tableName) {
     return (
       <div className="bg-gradient-to-br from-white to-blue-50 rounded-xl shadow-sm border border-slate-200 p-8">
@@ -334,11 +339,9 @@ const DynamicChartBuilder: React.FC<DynamicChartBuilderProps> = ({
           <div className="inline-flex items-center justify-center bg-gradient-to-r from-blue-500 to-indigo-600 p-3 rounded-full mb-4">
             <Database className="h-8 w-8 text-white" />
           </div>
-          <p className="text-lg font-medium">
-            Select a table to start building charts
-          </p>
+          <p className="text-lg font-medium">Select a table to start</p>
           <p className="text-sm mt-2 max-w-md mx-auto">
-            Connect your data source and choose a table to visualize your data
+            Connect your data source and choose a table to visualize.
           </p>
         </div>
       </div>
@@ -350,10 +353,10 @@ const DynamicChartBuilder: React.FC<DynamicChartBuilderProps> = ({
       <div className="p-2 pb-1">
         {/* Drop zones */}
         <div className="grid grid-cols-1 lg:grid-cols-3 gap-2 mb-1">
-          <div className="bg-gradient-to-br from-blue-50 to-indigo-50 rounded-lg border border-slate-200 p-2">
+          <div className="bg-gradient-to-br from-blue-50 to-indigo-50 rounded-lg border p-2">
             <label className="flex items-center mb-2 text-sm font-medium text-slate-700">
               <span className="w-2 h-2 rounded-full mr-2 bg-blue-500" />
-              X-Axis (Categories)
+              X-Axis
             </label>
             <ChartDropZone
               axis="x"
@@ -363,13 +366,10 @@ const DynamicChartBuilder: React.FC<DynamicChartBuilderProps> = ({
               label="Drag column for categories"
             />
           </div>
-          <div className="bg-gradient-to-br from-indigo-50 to-purple-50 rounded-lg border border-slate-200 p-2">
+          <div className="bg-gradient-to-br from-indigo-50 to-purple-50 rounded-lg border p-2">
             <label className="flex items-center mb-2 text-sm font-medium text-slate-700">
               <span className="w-2 h-2 rounded-full mr-2 bg-indigo-500" />
-              Y-Axis (Values){" "}
-              <span className="ml-auto text-xs text-slate-500">
-                Multiple Supported
-              </span>
+              Y-Axis
             </label>
             <ChartDropZone
               axis="y"
@@ -380,7 +380,7 @@ const DynamicChartBuilder: React.FC<DynamicChartBuilderProps> = ({
               label="Drag columns for values"
             />
           </div>
-          <div className="bg-gradient-to-br from-purple-50 to-pink-50 rounded-lg border border-slate-200 p-2">
+          <div className="bg-gradient-to-br from-purple-50 to-pink-50 rounded-lg border p-2">
             <label className="flex items-center mb-2 text-sm font-medium text-slate-700">
               <span className="w-2 h-2 rounded-full mr-2 bg-purple-500" />
               Group By (Optional)
@@ -411,13 +411,13 @@ const DynamicChartBuilder: React.FC<DynamicChartBuilderProps> = ({
           groupByColumn={effectiveGroupByColumn}
         />
 
-        {/* Download buttons */}
+        {/* Download */}
         {chartData.length > 0 && (
           <div className="flex items-center space-x-2 ml-auto mb-2">
             {activeView === "graph" && (
               <button
                 onClick={handleDownloadGraph}
-                className="flex items-center space-x-1 px-4 py-2 rounded-lg text-sm font-medium bg-green-500 text-white hover:opacity-90"
+                className="flex items-center space-x-1 px-4 py-2 bg-green-500 text-white rounded-lg"
               >
                 <Download className="h-4 w-4" />
                 <span>Graph</span>
@@ -426,7 +426,7 @@ const DynamicChartBuilder: React.FC<DynamicChartBuilderProps> = ({
             {activeView === "table" && (
               <button
                 onClick={handleDownloadTable}
-                className="flex items-center space-x-1 px-4 py-2 rounded-lg text-sm font-medium bg-green-500 text-white hover:opacity-90"
+                className="flex items-center space-x-1 px-4 py-2 bg-green-500 text-white rounded-lg"
               >
                 <Download className="h-4 w-4" />
                 <span>Table</span>
@@ -451,9 +451,8 @@ const DynamicChartBuilder: React.FC<DynamicChartBuilderProps> = ({
             chartContainerRef={chartContainerRef}
           />
         )}
-
         {activeView === "table" && (
-          <div className="bg-gradient-to-b from-white to-slate-50 rounded-xl border border-slate-200 p-1">
+          <div className="bg-gradient-to-b from-white to-slate-50 rounded-xl border p-1">
             <ChartDataTable
               chartData={chartData}
               xAxisColumn={xAxisColumn}
@@ -464,9 +463,8 @@ const DynamicChartBuilder: React.FC<DynamicChartBuilderProps> = ({
             />
           </div>
         )}
-
         {activeView === "query" && (
-          <div className="bg-gradient-to-b from-white to-slate-50 rounded-xl border border-slate-200 p-1">
+          <div className="bg-gradient-to-b from-white to-slate-50 rounded-xl border p-1">
             <SqlQueryDisplay generatedQuery={generatedQuery} />
           </div>
         )}
