@@ -1,12 +1,13 @@
 import React, { useState, useEffect, useMemo } from "react";
-import { BrowserRouter as Router, Routes, Route, Link } from "react-router-dom"; // Import Router and Link
+import { BrowserRouter as Router, Routes, Route, Link } from "react-router-dom";
+import { DashboardProvider } from "./components/DashboardContext"; // Import the DashboardProvider
 import Sidebar from "./components/Sidebar";
 import DynamicDataTable from "./components/DynamicDataTable";
 import DynamicChartBuilder from "./components/DynamicChartBuilder";
 import DynamicColumnsPanel from "./components/DynamicColumnsPanel";
 import DatabaseSelector from "./components/DatabaseSelector";
 import DragDropProvider from "./components/DragDropProvider";
-import DashboardGrid from "./components/DashboardGrid"; // Import DashboardGrid
+import DashboardGrid from "./components/DashboardGrid";
 import {
   DatabaseColumn,
   apiService,
@@ -18,7 +19,6 @@ interface UpdatedDatabaseColumn extends DatabaseColumn {
   tableName?: string;
 }
 
-// Scalable tab title/subtitle maps
 const tabTitles: Record<string, string> = {
   trends: "Trends Analysis",
   settings: "Settings",
@@ -37,7 +37,6 @@ function App() {
   const [allTableSchemas, setAllTableSchemas] = useState<DatabaseTableSchema[]>(
     []
   );
-
   const [secondarySelectedTable, setSecondarySelectedTable] = useState<
     string | null
   >(null);
@@ -267,25 +266,26 @@ function App() {
   };
 
   return (
-    <Router>
-      <div className="flex h-screen bg-slate-100">
-        <Sidebar activeTab={activeTab} onTabChange={setActiveTab} />
+    <DashboardProvider>
+      <Router>
+        <div className="flex h-screen bg-slate-100">
+          <Sidebar activeTab={activeTab} onTabChange={setActiveTab} />
 
-        <main className="flex-1 overflow-auto p-2">
-          {/* Conditionally render title + subtitle only when content exists */}
-          {(tabTitles[activeTab] || tabSubtitles[activeTab]) && (
-            <div className="mb-6">
-              <h1 className="text-3xl font-bold text-slate-900">
-                {tabTitles[activeTab]}
-              </h1>
-              <p className="text-slate-600 mt-2">{tabSubtitles[activeTab]}</p>
-            </div>
-          )}
+          <main className="flex-1 overflow-auto p-2">
+            {(tabTitles[activeTab] || tabSubtitles[activeTab]) && (
+              <div className="mb-6">
+                <h1 className="text-3xl font-bold text-slate-900">
+                  {tabTitles[activeTab]}
+                </h1>
+                <p className="text-slate-600 mt-2">{tabSubtitles[activeTab]}</p>
+              </div>
+            )}
 
-          {renderContent()}
-        </main>
-      </div>
-    </Router>
+            {renderContent()}
+          </main>
+        </div>
+      </Router>
+    </DashboardProvider>
   );
 }
 
