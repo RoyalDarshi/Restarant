@@ -1,5 +1,5 @@
 // src/components/DashboardGrid.tsx
-import React, { useState } from "react";
+import React, { useState, useEffect } from "react";
 import { useDashboard } from "./DashboardContext";
 import ChartDisplay from "./ChartDisplay";
 import { X } from "lucide-react";
@@ -8,22 +8,23 @@ const DashboardGrid = () => {
   const { charts, removeChart } = useDashboard();
   const [hoveredChart, setHoveredChart] = useState<string | null>(null);
   const [cards, setCards] = useState(charts); // State to track card positions
+  const [isMounted, setIsMounted] = useState(false); // To track the component mount state
 
-  // Handle the drag start event
+  useEffect(() => {
+    setIsMounted(true); // Set to true after the component mounts
+  }, []);
+
   const handleDragStart = (e: React.DragEvent, chartId: string) => {
     e.dataTransfer.setData("chartId", chartId);
   };
 
-  // Handle the drag over event to allow dropping
   const handleDragOver = (e: React.DragEvent) => {
     e.preventDefault();
   };
 
-  // Handle the drop event to reorder the cards
   const handleDrop = (e: React.DragEvent, targetId: string) => {
     const draggedId = e.dataTransfer.getData("chartId");
     if (draggedId !== targetId) {
-      // Reorder the cards based on the dragged and target card
       const draggedIndex = cards.findIndex((card) => card.id === draggedId);
       const targetIndex = cards.findIndex((card) => card.id === targetId);
 
@@ -36,6 +37,11 @@ const DashboardGrid = () => {
     }
   };
 
+  const handleRemoveChart = (chartId: string) => {
+    removeChart(chartId);
+    setCards(cards.filter(chart => chart.id !== chartId));
+  };
+
   if (!cards.length)
     return <div className="p-10 text-center text-slate-500">No charts added yet.</div>;
 
@@ -44,7 +50,9 @@ const DashboardGrid = () => {
       {cards.map((chart) => (
         <div
           key={chart.id}
-          className="relative border border-gray-400 rounded-lg bg-white p-2 shadow-xl transition-transform duration-200 ease-in-out"
+          className={`relative border border-gray-400 rounded-lg bg-white p-2 shadow-xl transition-all duration-300 ease-in-out transform ${
+            hoveredChart === chart.id ? 'scale-105 translate-y-2 shadow-2xl' : ''
+          }`} // Apply the hover effect only when hovered
           draggable
           onDragStart={(e) => handleDragStart(e, chart.id)}
           onDragOver={handleDragOver}
@@ -55,7 +63,7 @@ const DashboardGrid = () => {
           {/* Remove button that shows only on hover */}
           {hoveredChart === chart.id && (
             <button
-              onClick={() => removeChart(chart.id)}
+              onClick={() => handleRemoveChart(chart.id)}
               className="absolute top-2 right-2 z-10 bg-red-100 p-1 rounded-full text-red-600 hover:bg-red-200"
               title="Remove chart"
             >

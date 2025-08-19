@@ -20,12 +20,10 @@ interface UpdatedDatabaseColumn extends DatabaseColumn {
 }
 
 const tabTitles: Record<string, string> = {
-  trends: "Trends Analysis",
   settings: "Settings",
 };
 
 const tabSubtitles: Record<string, string> = {
-  trends: "Discover patterns and forecast future trends",
   settings: "Configure your dashboard preferences",
 };
 
@@ -242,17 +240,14 @@ function App() {
 
       case "trends":
         return (
-          <div className="bg-white rounded-xl shadow-sm border border-slate-200 p-8">
-            <h2 className="text-2xl font-bold text-slate-900 mb-4">
-              Trends Analysis
-            </h2>
+          <div className="bg-white rounded-xl shadow-sm border border-slate-200 p-2">
             <DashboardGrid /> {/* Show the DashboardGrid component */}
           </div>
         );
 
       case "settings":
         return (
-          <div className="bg-white rounded-xl shadow-sm border border-slate-200 p-8">
+          <div className="bg-white rounded-xl shadow-sm border border-slate-200 p-2">
             <h2 className="text-2xl font-bold text-slate-900 mb-4">Settings</h2>
             <p className="text-slate-600">
               Dashboard configuration options coming soon...
@@ -271,7 +266,7 @@ function App() {
         <div className="flex h-screen bg-slate-100">
           <Sidebar activeTab={activeTab} onTabChange={setActiveTab} />
 
-          <main className="flex-1 overflow-auto p-2">
+          <main className="flex-1 overflow-auto p-0.5">
             {(tabTitles[activeTab] || tabSubtitles[activeTab]) && (
               <div className="mb-6">
                 <h1 className="text-3xl font-bold text-slate-900">
