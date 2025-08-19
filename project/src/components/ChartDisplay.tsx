@@ -1,4 +1,3 @@
-// src/components/ChartDisplay.tsx
 import React from "react";
 import {
   ResponsiveContainer,
@@ -34,6 +33,7 @@ interface ChartDisplayProps {
   error: string | null;
   stacked: boolean;
   chartContainerRef: React.RefObject<HTMLDivElement>;
+  sortOrder?: 'asc' | 'desc' | null; // Optional prop for sorting - null means no sorting
 }
 
 const COLORS = [
@@ -73,12 +73,40 @@ const ChartDisplay: React.FC<ChartDisplayProps> = ({
   error,
   stacked,
   chartContainerRef,
+  sortOrder = null, // Default to null (no sorting)
 }) => {
   const isGroupingValid =
     !!groupByColumn &&
     !!xAxisColumn &&
     groupByColumn.key !== xAxisColumn.key &&
     uniqueGroupKeys.length > 0;
+
+  // Process data with optional sorting
+  const processedChartData = React.useMemo
+  (() => {
+    // If no sortOrder is specified, return original data
+    if (!sortOrder || yAxisColumns.length === 0) {
+      return chartData;
+    }
+
+    // Apply sorting based on the first Y-axis column
+    return [...chartData].sort((a, b) => {
+      const key = yAxisColumns[0]?.key;
+      const aValue = a[key] || 0;
+      const bValue = b[key] || 0;
+
+      // Handle non-numeric values
+      if (typeof aValue !== 'number' || typeof bValue !== 'number') {
+        return 0;
+      }
+
+      if (sortOrder === 'asc') {
+        return aValue - bValue; // Ascending order
+      } else {
+        return bValue - aValue; // Descending order
+      }
+    });
+  }, [chartData, sortOrder, yAxisColumns]);
 
   // 1) Loading
   if (loading) {
@@ -131,7 +159,8 @@ const ChartDisplay: React.FC<ChartDisplayProps> = ({
                       bg-gradient-to-br from-blue-50 to-indigo-50 
                       rounded-lg border border-dashed border-blue-200"
       >
-        <div className="bg-white p-6 rounded-2xl shadow-sm border border-blue-100">
+        <div className="bg
+        -white p-6 rounded-2xl shadow-sm border border-blue-100">
           <div className="flex justify-center mb-4">
             <div className="bg-gradient-to-r from-blue-500 to-indigo-600 p-3 rounded-full">
               <BarChart3 className="h-8 w-8 text-white" />
@@ -161,7 +190,7 @@ const ChartDisplay: React.FC<ChartDisplayProps> = ({
   }
 
   const commonProps = {
-    data: chartData,
+    data: processedChartData, // Use the processed data (sorted or unsorted)
     margin: { top: 20, right: 30, left: 20, bottom: 5 },
   };
 
@@ -390,7 +419,7 @@ const ChartDisplay: React.FC<ChartDisplayProps> = ({
     if (chartType === "pie") {
       // Pie ignores grouping — always uses first Y
       const pieData = chartData.map((r) => ({
-        name: r.name,
+        name:r.name,
         value: r[yAxisColumns[0].key] || 0,
       }));
       return (
