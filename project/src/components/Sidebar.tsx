@@ -1,4 +1,5 @@
 import React from 'react';
+import { Link } from 'react-router-dom';
 import { BarChart3, Database, TrendingUp, Settings, Download } from 'lucide-react';
 
 interface SidebarProps {
@@ -8,17 +9,16 @@ interface SidebarProps {
 
 const Sidebar: React.FC<SidebarProps> = ({ activeTab, onTabChange }) => {
   const menuItems = [
-    { id: 'data', label: 'Data View', icon: Database },
-    { id: 'charts', label: 'Analytics', icon: BarChart3 },
-    { id: 'trends', label: 'Trends', icon: TrendingUp },
-    { id: 'settings', label: 'Settings', icon: Settings },
+    { id: 'data', label: 'Data View', icon: Database, path: '/data' },
+    { id: 'charts', label: 'Analytics', icon: BarChart3, path: '/analytics' },
+    { id: 'trends', label: 'Trends', icon: TrendingUp, path: '/dashboard' }, // Update to /dashboard
+    { id: 'settings', label: 'Settings', icon: Settings, path: '/settings' },
   ];
 
   return (
     <div className="w-44 bg-slate-900 text-white h-screen flex flex-col">
       <div className="p-2 py-6 border-b border-slate-700">
         <div className="flex items-center space-x-2">
-          {/* <BarChart3 className="h-8 w-8 text-blue-400" /> */}
           <h1 className="text-xl font-bold">Analytics Hub</h1>
         </div>
       </div>
@@ -29,17 +29,18 @@ const Sidebar: React.FC<SidebarProps> = ({ activeTab, onTabChange }) => {
             const Icon = item.icon;
             return (
               <li key={item.id}>
-                <button
-                  onClick={() => onTabChange(item.id)}
+                <Link
+                  to={item.path} // Use Link here to handle navigation
+                  onClick={() => onTabChange(item.id)} // Handle active tab change
                   className={`w-full flex items-center space-x-3 px-4 py-3 rounded-lg transition-colors ${
                     activeTab === item.id
-                      ? "bg-blue-600 text-white"
-                      : "text-slate-300 hover:bg-slate-800 hover:text-white"
+                      ? 'bg-blue-600 text-white'
+                      : 'text-slate-300 hover:bg-slate-800 hover:text-white'
                   }`}
                 >
                   <Icon className="h-5 w-5" />
                   <span>{item.label}</span>
-                </button>
+                </Link>
               </li>
             );
           })}

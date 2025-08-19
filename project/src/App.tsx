@@ -1,11 +1,12 @@
-// App.tsx
 import React, { useState, useEffect, useMemo } from "react";
+import { BrowserRouter as Router, Routes, Route, Link } from "react-router-dom"; // Import Router and Link
 import Sidebar from "./components/Sidebar";
 import DynamicDataTable from "./components/DynamicDataTable";
 import DynamicChartBuilder from "./components/DynamicChartBuilder";
 import DynamicColumnsPanel from "./components/DynamicColumnsPanel";
 import DatabaseSelector from "./components/DatabaseSelector";
 import DragDropProvider from "./components/DragDropProvider";
+import DashboardGrid from "./components/DashboardGrid"; // Import DashboardGrid
 import {
   DatabaseColumn,
   apiService,
@@ -246,9 +247,7 @@ function App() {
             <h2 className="text-2xl font-bold text-slate-900 mb-4">
               Trends Analysis
             </h2>
-            <p className="text-slate-600">
-              Advanced trends and forecasting features coming soon...
-            </p>
+            <DashboardGrid /> {/* Show the DashboardGrid component */}
           </div>
         );
 
@@ -268,23 +267,25 @@ function App() {
   };
 
   return (
-    <div className="flex h-screen bg-slate-100">
-      <Sidebar activeTab={activeTab} onTabChange={setActiveTab} />
+    <Router>
+      <div className="flex h-screen bg-slate-100">
+        <Sidebar activeTab={activeTab} onTabChange={setActiveTab} />
 
-      <main className="flex-1 overflow-auto p-2">
-        {/* Conditionally render title + subtitle only when content exists */}
-        {(tabTitles[activeTab] || tabSubtitles[activeTab]) && (
-          <div className="mb-6">
-            <h1 className="text-3xl font-bold text-slate-900">
-              {tabTitles[activeTab]}
-            </h1>
-            <p className="text-slate-600 mt-2">{tabSubtitles[activeTab]}</p>
-          </div>
-        )}
+        <main className="flex-1 overflow-auto p-2">
+          {/* Conditionally render title + subtitle only when content exists */}
+          {(tabTitles[activeTab] || tabSubtitles[activeTab]) && (
+            <div className="mb-6">
+              <h1 className="text-3xl font-bold text-slate-900">
+                {tabTitles[activeTab]}
+              </h1>
+              <p className="text-slate-600 mt-2">{tabSubtitles[activeTab]}</p>
+            </div>
+          )}
 
-        {renderContent()}
-      </main>
-    </div>
+          {renderContent()}
+        </main>
+      </div>
+    </Router>
   );
 }
 
