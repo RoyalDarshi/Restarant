@@ -6,6 +6,7 @@ import React, {
   useMemo,
 } from "react";
 import html2canvas from "html2canvas";
+import { v4 as uuidv4 } from "uuid";
 import {
   DatabaseColumn,
   apiService,
@@ -21,6 +22,7 @@ import ChartDisplay from "./ChartDisplay";
 import { Download, Database } from "lucide-react";
 import { AggregationType, ChartType } from "./types";
 import { formatNumericValue } from "./utils";
+import { useDashboard } from "./DashboardContext"; // Import the dashboard context
 
 interface DynamicChartBuilderProps {
   tableName: string;
@@ -58,9 +60,11 @@ const DynamicChartBuilder: React.FC<DynamicChartBuilderProps> = ({
 
   const chartContainerRef = useRef<HTMLDivElement>(null);
 
+  // Dashboard context
+  const { addChart } = useDashboard();
+
   // ─────── Helpers ────────────────────────────────────────────────────────────
 
-  // Normalize SQL types to string|number
   const normalizeType = (type: string): "string" | "number" => {
     const lower = type.toLowerCase();
     if (lower.includes("char") || lower === "text") return "string";
@@ -75,13 +79,11 @@ const DynamicChartBuilder: React.FC<DynamicChartBuilderProps> = ({
     return "string";
   };
 
-  // Ignore grouping if it's the same column as X
   const effectiveGroupByColumn = useMemo<DatabaseColumn | null>(() => {
     if (!groupByColumn || !xAxisColumn) return null;
     return groupByColumn.key === xAxisColumn.key ? null : groupByColumn;
   }, [groupByColumn, xAxisColumn]);
 
-  // Infer the join column by matching key+type in both schemas
   const inferredJoinColumn = useMemo<string | undefined>(() => {
     if (!secondaryTableName) return undefined;
     const pSchema = allTableSchemas.find((s) => s.tableName === tableName);
@@ -99,7 +101,6 @@ const DynamicChartBuilder: React.FC<DynamicChartBuilderProps> = ({
     return undefined;
   }, [tableName, secondaryTableName, allTableSchemas]);
 
-  // Build the SQL preview
   const constructSqlQuery = useCallback(() => {
     if (!xAxisColumn || yAxisColumns.length === 0) return "";
 
@@ -108,7 +109,6 @@ const DynamicChartBuilder: React.FC<DynamicChartBuilderProps> = ({
     const sel: string[] = [];
     const grp: string[] = [];
 
-    // Do we need to join?
     const usesSecondary =
       secondaryTableName &&
       inferredJoinColumn &&
@@ -116,30 +116,25 @@ const DynamicChartBuilder: React.FC<DynamicChartBuilderProps> = ({
         yAxisColumns.some((c) => c.tableName === secondaryTableName) ||
         effectiveGroupByColumn?.tableName === secondaryTableName);
 
-    // Qualifier
     const qual = (col: DatabaseColumn) =>
       usesSecondary && col.tableName === secondaryTableName
         ? `${sAlias}."${col.key}"`
         : `${pAlias}."${col.key}"`;
 
-    // X-axis
     sel.push(`${qual(xAxisColumn)} AS name`);
     grp.push(qual(xAxisColumn));
 
-    // Group-by
     if (effectiveGroupByColumn) {
       sel.push(`${qual(effectiveGroupByColumn)}`);
       grp.push(qual(effectiveGroupByColumn));
     }
 
-    // Y-axes
     yAxisColumns.forEach((col) => {
       const agg =
         normalizeType(col.type) === "string" ? "COUNT" : aggregationType;
       sel.push(`${agg}(${qual(col)}) AS "${col.key}"`);
     });
 
-    // FROM / JOIN
     let sql = `SELECT ${sel.join(", ")}\nFROM "${tableName}" AS ${pAlias}`;
     if (usesSecondary && secondaryTableName && inferredJoinColumn) {
       sql +=
@@ -164,7 +159,6 @@ const DynamicChartBuilder: React.FC<DynamicChartBuilderProps> = ({
     inferredJoinColumn,
   ]);
 
-  // ─────── Data Fetch ──────────────────────────────────────────────────────────
   useEffect(() => {
     if (!xAxisColumn || yAxisColumns.length === 0) {
       setChartData([]);
@@ -178,14 +172,12 @@ const DynamicChartBuilder: React.FC<DynamicChartBuilderProps> = ({
     const sqlPreview = constructSqlQuery();
     setGeneratedQuery(sqlPreview);
 
-    // stacking logic
     if (effectiveGroupByColumn && chartType === "bar") {
       setStacked(true);
     } else {
       setStacked(yAxisColumns.length > 1);
     }
 
-    // build payload
     const aggTypes = yAxisColumns.map((col) =>
       normalizeType(col.type) === "string" ? "COUNT" : aggregationType
     );
@@ -211,7 +203,7 @@ const DynamicChartBuilder: React.FC<DynamicChartBuilderProps> = ({
       groupBy: gReq,
       aggregationTypes: aggTypes,
       secondaryTableName,
-      joinColumn: inferredJoinColumn, // ← actually pass it now
+      joinColumn: inferredJoinColumn,
     };
 
     apiService
@@ -220,7 +212,6 @@ const DynamicChartBuilder: React.FC<DynamicChartBuilderProps> = ({
         if (resp.success && resp.data) {
           let processed = resp.data;
 
-          // pivot if grouped
           if (effectiveGroupByColumn && processed.length) {
             const pivot: any[] = [];
             resp.data.forEach((row) => {
@@ -271,7 +262,6 @@ const DynamicChartBuilder: React.FC<DynamicChartBuilderProps> = ({
     chartType,
   ]);
 
-  // ─────── Handlers ───────────────────────────────────────────────────────────
   const handleDrop = (col: DatabaseColumn, axis: "x" | "y" | "group") => {
     if (axis === "x") setXAxisColumn(col);
     if (axis === "y")
@@ -432,6 +422,30 @@ const DynamicChartBuilder: React.FC<DynamicChartBuilderProps> = ({
                 <span>Table</span>
               </button>
             )}
+          </div>
+        )}
+
+        {/* Add to Dashboard Button */}
+        {activeView === "graph" && chartData.length > 0 && (
+          <div className="flex justify-end mb-2">
+            <button
+              onClick={() =>
+                addChart({
+                  id: uuidv4(),
+                  chartType,
+                  chartData,
+                  xAxisColumn,
+                  yAxisColumns,
+                  groupByColumn: effectiveGroupByColumn,
+                  uniqueGroupKeys,
+                  aggregationType,
+                  stacked,
+                })
+              }
+              className="flex items-center space-x-2 px-4 py-2 bg-blue-500 text-white rounded-lg shadow"
+            >
+              <span>Add to Dashboard</span>
+            </button>
           </div>
         )}
 

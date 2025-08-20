@@ -1,11 +1,13 @@
-// App.tsx
 import React, { useState, useEffect, useMemo } from "react";
+import { BrowserRouter as Router, Routes, Route, Link } from "react-router-dom";
+import { DashboardProvider } from "./components/DashboardContext"; // Import the DashboardProvider
 import Sidebar from "./components/Sidebar";
 import DynamicDataTable from "./components/DynamicDataTable";
 import DynamicChartBuilder from "./components/DynamicChartBuilder";
 import DynamicColumnsPanel from "./components/DynamicColumnsPanel";
 import DatabaseSelector from "./components/DatabaseSelector";
 import DragDropProvider from "./components/DragDropProvider";
+import DashboardGrid from "./components/DashboardGrid";
 import {
   DatabaseColumn,
   apiService,
@@ -17,14 +19,11 @@ interface UpdatedDatabaseColumn extends DatabaseColumn {
   tableName?: string;
 }
 
-// Scalable tab title/subtitle maps
 const tabTitles: Record<string, string> = {
-  trends: "Trends Analysis",
   settings: "Settings",
 };
 
 const tabSubtitles: Record<string, string> = {
-  trends: "Discover patterns and forecast future trends",
   settings: "Configure your dashboard preferences",
 };
 
@@ -36,7 +35,6 @@ function App() {
   const [allTableSchemas, setAllTableSchemas] = useState<DatabaseTableSchema[]>(
     []
   );
-
   const [secondarySelectedTable, setSecondarySelectedTable] = useState<
     string | null
   >(null);
@@ -242,19 +240,14 @@ function App() {
 
       case "trends":
         return (
-          <div className="bg-white rounded-xl shadow-sm border border-slate-200 p-8">
-            <h2 className="text-2xl font-bold text-slate-900 mb-4">
-              Trends Analysis
-            </h2>
-            <p className="text-slate-600">
-              Advanced trends and forecasting features coming soon...
-            </p>
+          <div className="bg-gray-400 min-h-screen rounded-xl shadow-sm border border-slate-200 p-2">
+            <DashboardGrid /> {/* Show the DashboardGrid component */}
           </div>
         );
 
       case "settings":
         return (
-          <div className="bg-white rounded-xl shadow-sm border border-slate-200 p-8">
+          <div className="bg-white rounded-xl shadow-sm border border-slate-200 p-2">
             <h2 className="text-2xl font-bold text-slate-900 mb-4">Settings</h2>
             <p className="text-slate-600">
               Dashboard configuration options coming soon...
@@ -268,23 +261,26 @@ function App() {
   };
 
   return (
-    <div className="flex h-screen bg-slate-100">
-      <Sidebar activeTab={activeTab} onTabChange={setActiveTab} />
+    <DashboardProvider>
+      <Router>
+        <div className="flex h-screen bg-slate-100">
+          <Sidebar activeTab={activeTab} onTabChange={setActiveTab} />
 
-      <main className="flex-1 overflow-auto p-2">
-        {/* Conditionally render title + subtitle only when content exists */}
-        {(tabTitles[activeTab] || tabSubtitles[activeTab]) && (
-          <div className="mb-6">
-            <h1 className="text-3xl font-bold text-slate-900">
-              {tabTitles[activeTab]}
-            </h1>
-            <p className="text-slate-600 mt-2">{tabSubtitles[activeTab]}</p>
-          </div>
-        )}
+          <main className="flex-1 overflow-auto p-0.5">
+            {(tabTitles[activeTab] || tabSubtitles[activeTab]) && (
+              <div className="mb-6">
+                <h1 className="text-3xl font-bold text-slate-900">
+                  {tabTitles[activeTab]}
+                </h1>
+                <p className="text-slate-600 mt-2">{tabSubtitles[activeTab]}</p>
+              </div>
+            )}
 
-        {renderContent()}
-      </main>
-    </div>
+            {renderContent()}
+          </main>
+        </div>
+      </Router>
+    </DashboardProvider>
   );
 }
 
