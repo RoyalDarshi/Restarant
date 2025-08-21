@@ -238,7 +238,7 @@ function App() {
           </DragDropProvider>
         );
 
-      case "trends":
+      case "dashboard":
         return (
           <div className="bg-white rounded-xl shadow-sm border border-slate-200 p-1">
             <DashboardGrid /> {/* Show the DashboardGrid component */}

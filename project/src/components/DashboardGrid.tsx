@@ -13,6 +13,11 @@ const DashboardGrid = () => {
     setIsMounted(true);
   }, []);
 
+  // Sync local cards with charts from context whenever charts change
+  useEffect(() => {
+    setCards(charts);
+  }, [charts]);
+
   const handleDragStart = (e: React.DragEvent, chartId: string) => {
     e.dataTransfer.setData("chartId", chartId);
   };
