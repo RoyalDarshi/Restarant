@@ -58,7 +58,7 @@ const DynamicChartBuilder: React.FC<DynamicChartBuilderProps> = ({
   );
   const [uniqueGroupKeys, setUniqueGroupKeys] = useState<string[]>([]);
 
-  // Reset axis and chart state whenever primary or secondary changes
+  // Reset ALL selections and chart data whenever primary or secondary table changes
   useEffect(() => {
     setXAxisColumn(null);
     setYAxisColumns([]);
