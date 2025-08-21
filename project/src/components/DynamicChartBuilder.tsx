@@ -58,10 +58,23 @@ const DynamicChartBuilder: React.FC<DynamicChartBuilderProps> = ({
   );
   const [uniqueGroupKeys, setUniqueGroupKeys] = useState<string[]>([]);
 
+  // Reset ALL selections and chart data whenever primary or secondary table changes
+  useEffect(() => {
+    setXAxisColumn(null);
+    setYAxisColumns([]);
+    setGroupByColumn(null);
+    setChartData([]);
+    setGeneratedQuery("");
+    setUniqueGroupKeys([]);
+    setActiveView("graph");
+    setError(null);
+  }, [tableName, secondaryTableName]);
+
   const chartContainerRef = useRef<HTMLDivElement>(null);
 
   // Dashboard context
   const { addChart } = useDashboard();
+  const [successMessage, setSuccessMessage] = useState<string | null>(null);
 
   // ─────── Helpers ────────────────────────────────────────────────────────────
 
@@ -226,13 +239,41 @@ const DynamicChartBuilder: React.FC<DynamicChartBuilderProps> = ({
               entry[g] = y;
             });
             processed = pivot;
-            setUniqueGroupKeys(
-              Array.from(
-                new Set(resp.data.map((r) => r[effectiveGroupByColumn.key]))
-              )
+
+            // collect group keys locally
+            const groupKeys = Array.from(
+              new Set(resp.data.map((r) => r[effectiveGroupByColumn.key]))
             );
+            setUniqueGroupKeys(groupKeys);
+
+            // ✅ sort by total of all groups
+            processed = processed.sort((a, b) => {
+              const sumA = groupKeys.reduce((acc, g) => acc + (a[g] || 0), 0);
+              const sumB = groupKeys.reduce((acc, g) => acc + (b[g] || 0), 0);
+              return sumB - sumA; // descending
+            });
           } else {
             setUniqueGroupKeys([]);
+            // fallback: normal yAxis sort
+            if (processed.length > 0 && yAxisColumns.length > 0) {
+              const yKey = yAxisColumns[0].key;
+              processed = processed.sort((a, b) => {
+                const aVal = Number(a[yKey]) || 0;
+                const bVal = Number(b[yKey]) || 0;
+                return bVal - aVal; // descending
+              });
+            }
+          }
+
+
+          // 🔥 New sorting logic here
+          if (processed.length > 0 && yAxisColumns.length > 0) {
+            const yKey = yAxisColumns[0].key;
+            processed = [...processed].sort((a, b) => {
+              const aVal = Number(a[yKey]) || 0;
+              const bVal = Number(b[yKey]) || 0;
+              return bVal - aVal; // ascending
+            });
           }
 
           setChartData(processed);
@@ -424,12 +465,17 @@ const DynamicChartBuilder: React.FC<DynamicChartBuilderProps> = ({
             )}
           </div>
         )}
-
+        {/* Success message */}
+        {successMessage && (
+          <div className="mb-2 px-4 py-2 bg-green-100 text-green-800 rounded">
+            {successMessage}
+          </div>
+        )}
         {/* Add to Dashboard Button */}
         {activeView === "graph" && chartData.length > 0 && (
           <div className="flex justify-end mb-2">
             <button
-              onClick={() =>
+              onClick={() => {
                 addChart({
                   id: uuidv4(),
                   chartType,
@@ -440,8 +486,17 @@ const DynamicChartBuilder: React.FC<DynamicChartBuilderProps> = ({
                   uniqueGroupKeys,
                   aggregationType,
                   stacked,
-                })
-              }
+                });
+                setXAxisColumn(null);
+                setYAxisColumns([]);
+                setGroupByColumn(null);
+                setChartData([]);
+                setGeneratedQuery("");
+                setActiveView("graph");
+                setError(null);
+                setSuccessMessage("Added successfully to dashboard");
+                setTimeout(() => setSuccessMessage(null), 3000);
+              }}
               className="flex items-center space-x-2 px-4 py-2 bg-blue-500 text-white rounded-lg shadow"
             >
               <span>Add to Dashboard</span>

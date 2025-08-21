@@ -1,6 +1,6 @@
 import React from 'react';
-import { Link } from 'react-router-dom';
-import { BarChart3, Database, TrendingUp, Settings, Download } from 'lucide-react';
+import { Link } from "react-router-dom";
+import { BarChart3, Database, EyeIcon, Settings, Download } from "lucide-react";
 
 interface SidebarProps {
   activeTab: string;
@@ -9,10 +9,15 @@ interface SidebarProps {
 
 const Sidebar: React.FC<SidebarProps> = ({ activeTab, onTabChange }) => {
   const menuItems = [
-    { id: 'data', label: 'Data View', icon: Database, path: '/data' },
-    { id: 'charts', label: 'Analytics', icon: BarChart3, path: '/analytics' },
-    { id: 'trends', label: 'Trends', icon: TrendingUp, path: '/dashboard' }, // Update to /dashboard
-    { id: 'settings', label: 'Settings', icon: Settings, path: '/settings' },
+    { id: "data", label: "Data View", icon: Database, path: "/data" },
+    { id: "charts", label: "Analytics", icon: BarChart3, path: "/analytics" },
+    {
+      id: "dashboard",
+      label: "Dashboard",
+      icon: EyeIcon,
+      path: "/dashboard",
+    }, // Update to /dashboard
+    { id: "settings", label: "Settings", icon: Settings, path: "/settings" },
   ];
 
   return (
@@ -34,8 +39,8 @@ const Sidebar: React.FC<SidebarProps> = ({ activeTab, onTabChange }) => {
                   onClick={() => onTabChange(item.id)} // Handle active tab change
                   className={`w-full flex items-center space-x-3 px-4 py-3 rounded-lg transition-colors ${
                     activeTab === item.id
-                      ? 'bg-blue-600 text-white'
-                      : 'text-slate-300 hover:bg-slate-800 hover:text-white'
+                      ? "bg-blue-600 text-white"
+                      : "text-slate-300 hover:bg-slate-800 hover:text-white"
                   }`}
                 >
                   <Icon className="h-5 w-5" />

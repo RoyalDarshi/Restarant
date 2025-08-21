@@ -1,5 +1,4 @@
-// src/components/DashboardGrid.tsx
-import React, { useState, useEffect, useMemo } from "react";
+import React, { useState, useEffect } from "react";
 import { useDashboard } from "./DashboardContext";
 import ChartDisplay from "./ChartDisplay";
 import { X } from "lucide-react";
@@ -7,28 +6,18 @@ import { X } from "lucide-react";
 const DashboardGrid = () => {
   const { charts, removeChart } = useDashboard();
   const [hoveredChart, setHoveredChart] = useState<string | null>(null);
-  const [cards, setCards] = useState(charts); // State to track card positions
-  const [chartSorting, setChartSorting] = useState<{ [key: string]: 'asc' | 'desc' | null }>({});
-
-  const [isMounted, setIsMounted] = useState(false); // To track the component mount state
+  const [cards, setCards] = useState(charts); // Track card positions
+  const [isMounted, setIsMounted] = useState(false);
 
   useEffect(() => {
-    setIsMounted(true); // Set to true after the component mounts
+    setIsMounted(true);
   }, []);
 
-  // Update cards when charts change
+  // Sync local cards with charts from context whenever charts change
   useEffect(() => {
     setCards(charts);
   }, [charts]);
 
-  // Handle sorting of a specific chart's data
-  const handleSortChange = (chartId: string, order: string) => {
-    // If "none" is selected, set to null, otherwise set the order
-    const sortOrder = order === 'none' ? null : order as 'asc' | 'desc';
-    setChartSorting((prev) => ({ ...prev, [chartId]: sortOrder }));
-  };
-
-  // Function to handle drag start event
   const handleDragStart = (e: React.DragEvent, chartId: string) => {
     e.dataTransfer.setData("chartId", chartId);
   };
@@ -54,70 +43,50 @@ const DashboardGrid = () => {
 
   const handleRemoveChart = (chartId: string) => {
     removeChart(chartId);
-    setCards(cards.filter(chart => chart.id !== chartId));
-    // Also remove sorting preference for this chart
-    setChartSorting((prev) => {
-      const newSorting = { ...prev };
-      delete newSorting[chartId];
-      return newSorting;    });
+    setCards(cards.filter((chart) => chart.id !== chartId));
   };
 
-  if (!cards.length)
-    return <div className="p-10 text-center text-slate-500">No charts added yet.</div>;
+  if (!cards.length) {
+    return (
+      <div className="p-10 text-center text-slate-500">
+        No charts added yet.
+      </div>
+    );
+  }
 
   return (
-    <div className="space-y-4">
-      {/* Grid of Cards */}
-      <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-6 p-4">
-        {cards.map((chart) => (
-          <div
-            key={chart.id}
-            className={`relative border border-gray-400 rounded-lg bg-white p-2 shadow-xl transition-all duration-300 ease-in-out transform ${
-              hoveredChart === chart.id ? 'scale-105 translate-y-2 shadow-2xl' : ''
-            }`} // Apply hover effect only when hovered
-            draggable
-            onDragStart={(e) => handleDragStart(e, chart.id)}
-            onDragOver={handleDragOver}
-            onDrop={(e) => handleDrop(e, chart.id)}
-            onMouseEnter={() => setHoveredChart(chart.id)}
-            onMouseLeave={() => setHoveredChart(null)}
-          >
-            {/* Remove button that shows only on hover */}
-            {hoveredChart === chart.id && (
-              <button
-                onClick={() => handleRemoveChart(chart.id)}
-                className="absolute top-2 right-2 z-10 bg-red-100 p-1 rounded-full text-red-600 hover:bg-red-200"
-                title="Remove chart"
-              >
-                <X size={16} />
-              </button>
-            )}
+    <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-2 p-1">
+      {cards.map((chart) => (
+        <div
+          key={chart.id}
+          className={`relative border border-gray-300 rounded-md bg-white p-1 shadow-md transition-all duration-200 ease-in-out transform ${
+            hoveredChart === chart.id ? "scale-[1.02] shadow-lg" : ""
+          }`}
+          draggable
+          onDragStart={(e) => handleDragStart(e, chart.id)}
+          onDragOver={handleDragOver}
+          onDrop={(e) => handleDrop(e, chart.id)}
+          onMouseEnter={() => setHoveredChart(chart.id)}
+          onMouseLeave={() => setHoveredChart(null)}
+        >
+          {hoveredChart === chart.id && (
+            <button
+              onClick={() => handleRemoveChart(chart.id)}
+              className="absolute top-1.5 right-1.5 z-10 bg-red-100 p-0.5 rounded-full text-red-600 hover:bg-red-200"
+              title="Remove chart"
+            >
+              <X size={14} />
+            </button>
+          )}
 
-            {/* Sorting Dropdown inside each chart */}
-            <div className="absolute top-2 left-2 z-10">
-              <select
-                value={chartSorting[chart.id] || 'none'}
-                onChange={(e) => handleSortChange(chart.id, e.target.value)}
-                className="border border-gray-300 p-1 rounded text-sm"
-              >
-                <option value="none">No Sorting</option>
-                <option value="asc">Ascending</option>
-                <option value="desc">Descending</option>
-              </select>
-            </div>
-
-            {/* Pass the sorting option to ChartDisplay */}
-            <ChartDisplay
-              key={`${chart.id}-${chartSorting[chart.id] || 'none'}`} // Force re-render when sort changes
-              chartContainerRef={React.createRef()}
-              loading={false}
-              error={null}
-              sortOrder={chartSorting[chart.id] || null} // Pass null when no sorting
-              {...chart}
-            />
-          </div>
-        ))}
-      </div>
+          <ChartDisplay
+            chartContainerRef={React.createRef()}
+            loading={false}
+            error={null}
+            {...chart}
+          />
+        </div>
+      ))}
     </div>
   );
 };

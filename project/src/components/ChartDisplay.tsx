@@ -33,7 +33,7 @@ interface ChartDisplayProps {
   error: string | null;
   stacked: boolean;
   chartContainerRef: React.RefObject<HTMLDivElement>;
-  sortOrder?: 'asc' | 'desc' | null; // Optional prop for sorting - null means no sorting
+  sortOrder?: "asc" | "desc" | null; // Optional prop for sorting - null means no sorting
 }
 
 const COLORS = [
@@ -82,8 +82,7 @@ const ChartDisplay: React.FC<ChartDisplayProps> = ({
     uniqueGroupKeys.length > 0;
 
   // Process data with optional sorting
-  const processedChartData = React.useMemo
-  (() => {
+  const processedChartData = React.useMemo(() => {
     // If no sortOrder is specified, return original data
     if (!sortOrder || yAxisColumns.length === 0) {
       return chartData;
@@ -96,11 +95,11 @@ const ChartDisplay: React.FC<ChartDisplayProps> = ({
       const bValue = b[key] || 0;
 
       // Handle non-numeric values
-      if (typeof aValue !== 'number' || typeof bValue !== 'number') {
+      if (typeof aValue !== "number" || typeof bValue !== "number") {
         return 0;
       }
 
-      if (sortOrder === 'asc') {
+      if (sortOrder === "asc") {
         return aValue - bValue; // Ascending order
       } else {
         return bValue - aValue; // Descending order
@@ -159,8 +158,10 @@ const ChartDisplay: React.FC<ChartDisplayProps> = ({
                       bg-gradient-to-br from-blue-50 to-indigo-50 
                       rounded-lg border border-dashed border-blue-200"
       >
-        <div className="bg
-        -white p-6 rounded-2xl shadow-sm border border-blue-100">
+        <div
+          className="bg
+        -white p-6 rounded-2xl shadow-sm border border-blue-100"
+        >
           <div className="flex justify-center mb-4">
             <div className="bg-gradient-to-r from-blue-500 to-indigo-600 p-3 rounded-full">
               <BarChart3 className="h-8 w-8 text-white" />
@@ -419,7 +420,7 @@ const ChartDisplay: React.FC<ChartDisplayProps> = ({
     if (chartType === "pie") {
       // Pie ignores grouping — always uses first Y
       const pieData = chartData.map((r) => ({
-        name:r.name,
+        name: r.name,
         value: r[yAxisColumns[0].key] || 0,
       }));
       return (
@@ -451,9 +452,9 @@ const ChartDisplay: React.FC<ChartDisplayProps> = ({
   return (
     <div
       ref={chartContainerRef}
-      className="bg-gradient-to-b from-white to-slate-50 rounded-xl border border-slate-200 p-1"
+      className=" rounded-md border border-slate-200 p-0.5"
     >
-      <ResponsiveContainer width="100%" height={400}>
+      <ResponsiveContainer width="100%" height={360}>
         {renderChart()}
       </ResponsiveContainer>
     </div>

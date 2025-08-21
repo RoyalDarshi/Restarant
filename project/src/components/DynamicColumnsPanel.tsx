@@ -46,7 +46,9 @@ const DynamicColumnsPanel: React.FC<DynamicColumnsPanelProps> = ({
     const filtered = primaryTableColumns.filter(
       (column) =>
         column.key.toLowerCase().includes(searchTerm.toLowerCase()) ||
-        column.label.toLowerCase().includes(searchTerm.toLowerCase())
+        (column.label || column.key)
+          .toLowerCase()
+          .includes(searchTerm.toLowerCase())
     );
     return filtered.sort((a, b) => a.label.localeCompare(b.label));
   }, [primaryTableColumns, searchTerm]);
@@ -56,7 +58,9 @@ const DynamicColumnsPanel: React.FC<DynamicColumnsPanelProps> = ({
     const filtered = secondaryTableColumns.filter(
       (column) =>
         column.key.toLowerCase().includes(searchTerm.toLowerCase()) ||
-        column.label.toLowerCase().includes(searchTerm.toLowerCase())
+        (column.label || column.key)
+          .toLowerCase()
+          .includes(searchTerm.toLowerCase())
     );
     return filtered.sort((a, b) => a.label.localeCompare(b.label));
   }, [secondaryTableColumns, searchTerm]);

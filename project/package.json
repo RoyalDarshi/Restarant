@@ -23,11 +23,12 @@
     "react-dnd": "^16.0.1",
     "react-dnd-html5-backend": "^16.0.1",
     "react-dom": "^18.3.1",
-    "react-is": "^19.1.1",
+    "react-router-dom": "^7.8.1",
     "react-syntax-highlighter": "^15.6.1",
     "react-table": "^7.8.0",
     "recharts": "^3.1.0",
-    "sql-formatter": "^15.6.6"
+    "sql-formatter": "^15.6.6",
+    "uuid": "^11.1.0"
   },
   "devDependencies": {
     "@eslint/js": "^9.9.1",
