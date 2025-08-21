@@ -107,6 +107,9 @@ function App() {
           })
         );
         setTableColumns(fetchedColumns);
+
+setSecondarySelectedTable(null);
+setSecondaryTableColumns([]);
         console.log(
           `App.tsx: Columns fetched for primary table '${tableName}':`,
           fetchedColumns

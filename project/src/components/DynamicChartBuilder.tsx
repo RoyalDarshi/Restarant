@@ -58,6 +58,18 @@ const DynamicChartBuilder: React.FC<DynamicChartBuilderProps> = ({
   );
   const [uniqueGroupKeys, setUniqueGroupKeys] = useState<string[]>([]);
 
+  // Reset axis and chart state whenever primary or secondary changes
+  useEffect(() => {
+    setXAxisColumn(null);
+    setYAxisColumns([]);
+    setGroupByColumn(null);
+    setChartData([]);
+    setGeneratedQuery("");
+    setUniqueGroupKeys([]);
+    setActiveView("graph");
+    setError(null);
+  }, [tableName, secondaryTableName]);
+
   const chartContainerRef = useRef<HTMLDivElement>(null);
 
   // Dashboard context
