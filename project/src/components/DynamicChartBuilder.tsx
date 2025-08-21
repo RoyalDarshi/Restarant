@@ -227,13 +227,41 @@ const DynamicChartBuilder: React.FC<DynamicChartBuilderProps> = ({
               entry[g] = y;
             });
             processed = pivot;
-            setUniqueGroupKeys(
-              Array.from(
-                new Set(resp.data.map((r) => r[effectiveGroupByColumn.key]))
-              )
+
+            // collect group keys locally
+            const groupKeys = Array.from(
+              new Set(resp.data.map((r) => r[effectiveGroupByColumn.key]))
             );
+            setUniqueGroupKeys(groupKeys);
+
+            // ✅ sort by total of all groups
+            processed = processed.sort((a, b) => {
+              const sumA = groupKeys.reduce((acc, g) => acc + (a[g] || 0), 0);
+              const sumB = groupKeys.reduce((acc, g) => acc + (b[g] || 0), 0);
+              return sumB - sumA; // descending
+            });
           } else {
             setUniqueGroupKeys([]);
+            // fallback: normal yAxis sort
+            if (processed.length > 0 && yAxisColumns.length > 0) {
+              const yKey = yAxisColumns[0].key;
+              processed = processed.sort((a, b) => {
+                const aVal = Number(a[yKey]) || 0;
+                const bVal = Number(b[yKey]) || 0;
+                return bVal - aVal; // descending
+              });
+            }
+          }
+
+
+          // 🔥 New sorting logic here
+          if (processed.length > 0 && yAxisColumns.length > 0) {
+            const yKey = yAxisColumns[0].key;
+            processed = [...processed].sort((a, b) => {
+              const aVal = Number(a[yKey]) || 0;
+              const bVal = Number(b[yKey]) || 0;
+              return bVal - aVal; // ascending
+            });
           }
 
           setChartData(processed);
