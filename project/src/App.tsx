@@ -240,7 +240,7 @@ function App() {
 
       case "trends":
         return (
-          <div className="bg-gray-400 min-h-screen rounded-xl shadow-sm border border-slate-200 p-2">
+          <div className="bg-white rounded-xl shadow-sm border border-slate-200 p-2">
             <DashboardGrid /> {/* Show the DashboardGrid component */}
           </div>
         );
