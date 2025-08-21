@@ -452,9 +452,9 @@ const ChartDisplay: React.FC<ChartDisplayProps> = ({
   return (
     <div
       ref={chartContainerRef}
-      className=" rounded-xl border border-slate-200 p-1"
+      className=" rounded-md border border-slate-200 p-0.5"
     >
-      <ResponsiveContainer width="100%" height={400}>
+      <ResponsiveContainer width="100%" height={360}>
         {renderChart()}
       </ResponsiveContainer>
     </div>
