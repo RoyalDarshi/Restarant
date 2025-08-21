@@ -62,6 +62,7 @@ const DynamicChartBuilder: React.FC<DynamicChartBuilderProps> = ({
 
   // Dashboard context
   const { addChart } = useDashboard();
+  const [successMessage, setSuccessMessage] = useState<string | null>(null);
 
   // ─────── Helpers ────────────────────────────────────────────────────────────
 
@@ -424,12 +425,17 @@ const DynamicChartBuilder: React.FC<DynamicChartBuilderProps> = ({
             )}
           </div>
         )}
-
+        {/* Success message */}
+        {successMessage && (
+          <div className="mb-2 px-4 py-2 bg-green-100 text-green-800 rounded">
+            {successMessage}
+          </div>
+        )}
         {/* Add to Dashboard Button */}
         {activeView === "graph" && chartData.length > 0 && (
           <div className="flex justify-end mb-2">
             <button
-              onClick={() =>
+              onClick={() => {
                 addChart({
                   id: uuidv4(),
                   chartType,
@@ -440,8 +446,17 @@ const DynamicChartBuilder: React.FC<DynamicChartBuilderProps> = ({
                   uniqueGroupKeys,
                   aggregationType,
                   stacked,
-                })
-              }
+                });
+                setXAxisColumn(null);
+                setYAxisColumns([]);
+                setGroupByColumn(null);
+                setChartData([]);
+                setGeneratedQuery("");
+                setActiveView("graph");
+                setError(null);
+                setSuccessMessage("Added successfully to dashboard");
+                setTimeout(() => setSuccessMessage(null), 3000);
+              }}
               className="flex items-center space-x-2 px-4 py-2 bg-blue-500 text-white rounded-lg shadow"
             >
               <span>Add to Dashboard</span>

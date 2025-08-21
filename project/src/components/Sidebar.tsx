@@ -1,6 +1,6 @@
 import React from 'react';
 import { Link } from "react-router-dom";
-import { BarChart3, Database, TrendingUp, Settings, Download } from 'lucide-react';
+import { BarChart3, Database, EyeIcon, Settings, Download } from "lucide-react";
 
 interface SidebarProps {
   activeTab: string;
@@ -11,7 +11,12 @@ const Sidebar: React.FC<SidebarProps> = ({ activeTab, onTabChange }) => {
   const menuItems = [
     { id: "data", label: "Data View", icon: Database, path: "/data" },
     { id: "charts", label: "Analytics", icon: BarChart3, path: "/analytics" },
-    { id: "trends", label: "Trends", icon: TrendingUp, path: "/dashboard" }, // Update to /dashboard
+    {
+      id: "dashboard",
+      label: "Dashboard",
+      icon: EyeIcon,
+      path: "/dashboard",
+    }, // Update to /dashboard
     { id: "settings", label: "Settings", icon: Settings, path: "/settings" },
   ];
 
