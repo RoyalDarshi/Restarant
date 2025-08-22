@@ -216,9 +216,18 @@ const DynamicChartBuilder: React.FC<DynamicChartBuilderProps> = ({
         if (resp.success && resp.data) {
           let processed = resp.data;
 
+          // 🔥 Filter out rows where x-axis or y values are null/undefined
+          processed = processed.filter((row) => {
+            if (!row.name) return false; // x-axis is null/empty
+            return yAxisColumns.every(
+              (col) => row[col.key] !== null && row[col.key] !== undefined
+            );
+          });
+
           if (effectiveGroupByColumn && processed.length) {
-            const pivot = [];
+            const pivot: any[] = [];
             resp.data.forEach((row) => {
+              if (!row.name || row[effectiveGroupByColumn.key] == null) return; // skip invalid
               const x = row.name;
               const g = row[effectiveGroupByColumn.key];
               const y = row[yAxisColumns[0].key];
@@ -231,13 +240,11 @@ const DynamicChartBuilder: React.FC<DynamicChartBuilderProps> = ({
             });
             processed = pivot;
 
-            // collect group keys locally
             const groupKeys = Array.from(
               new Set(resp.data.map((r) => r[effectiveGroupByColumn.key]))
             );
             setUniqueGroupKeys(groupKeys);
 
-            // ✅ sort by total of all groups
             processed = processed.sort((a, b) => {
               const sumA = groupKeys.reduce((acc, g) => acc + (a[g] || 0), 0);
               const sumB = groupKeys.reduce((acc, g) => acc + (b[g] || 0), 0);
@@ -245,25 +252,14 @@ const DynamicChartBuilder: React.FC<DynamicChartBuilderProps> = ({
             });
           } else {
             setUniqueGroupKeys([]);
-            // fallback: normal yAxis sort
             if (processed.length > 0 && yAxisColumns.length > 0) {
               const yKey = yAxisColumns[0].key;
               processed = processed.sort((a, b) => {
                 const aVal = Number(a[yKey]) || 0;
                 const bVal = Number(b[yKey]) || 0;
-                return bVal - aVal; // descending
+                return bVal - aVal;
               });
             }
-          }
-
-          // 🔥 New sorting logic here
-          if (processed.length > 0 && yAxisColumns.length > 0) {
-            const yKey = yAxisColumns[0].key;
-            processed = [...processed].sort((a, b) => {
-              const aVal = Number(a[yKey]) || 0;
-              const bVal = Number(b[yKey]) || 0;
-              return bVal - aVal; // ascending
-            });
           }
 
           setChartData(processed);
