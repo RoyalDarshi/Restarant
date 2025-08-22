@@ -54,6 +54,7 @@ const DynamicChartBuilder: React.FC<DynamicChartBuilderProps> = ({
   const [uniqueGroupKeys, setUniqueGroupKeys] = useState([]);
   const [showDashboardModal, setShowDashboardModal] = useState(false);
   const [newDashboardName, setNewDashboardName] = useState("");
+
   // Reset ALL selections and chart data whenever primary or secondary table changes
   useEffect(() => {
     setXAxisColumn(null);
@@ -68,7 +69,12 @@ const DynamicChartBuilder: React.FC<DynamicChartBuilderProps> = ({
   const chartContainerRef = useRef(null);
 
   // Dashboard context
-  const { dashboards, addChartToDashboard, createDashboard, setCurrentDashboardId } = useDashboard();
+  const {
+    dashboards,
+    addChartToDashboard,
+    createDashboard,
+    setCurrentDashboardId,
+  } = useDashboard();
   const [successMessage, setSuccessMessage] = useState(null);
 
   // ─────── Helpers ────────────────────────────────────────────────────────────
@@ -573,7 +579,9 @@ const DynamicChartBuilder: React.FC<DynamicChartBuilderProps> = ({
                   </button>
                 ))
               ) : (
-                <div className="text-center text-slate-500 py-4">No dashboards exist. Please create one below.</div>
+                <div className="text-center text-slate-500 py-4">
+                  No dashboards exist. Please create one below.
+                </div>
               )}
             </div>
             <div className="flex items-center space-x-2 mb-4">
