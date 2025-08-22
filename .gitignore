@@ -1,3 +1,6 @@
 **/node_modules/
 start.sh
 stop.sh
+
+/python_backend
+.env
