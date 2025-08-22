@@ -70,16 +70,9 @@ const DashboardGrid = () => {
     return null;
   }
 
-  if (!cards.length) {
-    return (
-      <div className="p-10 text-center text-slate-500">
-        No charts added to this dashboard yet.
-      </div>
-    );
-  }
-
   return (
     <div className="p-4">
+      {/* This section is now always rendered */}
       <div className="flex items-center gap-2 mb-4">
         <select
           className="border p-1 rounded"
@@ -111,39 +104,46 @@ const DashboardGrid = () => {
           Delete Dashboard
         </button>
       </div>
-      <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-2 p-1">
-        {cards.map((chart) => (
-          <div
-            key={chart.id}
-            className={`relative border border-gray-300 rounded-md bg-white p-1 shadow-md transition-all duration-200 ease-in-out transform ${
-              hoveredChart === chart.id ? "scale-[1.02] shadow-lg" : ""
-            }`}
-            draggable
-            onDragStart={(e) => handleDragStart(e, chart.id)}
-            onDragOver={handleDragOver}
-            onDrop={(e) => handleDrop(e, chart.id)}
-            onMouseEnter={() => setHoveredChart(chart.id)}
-            onMouseLeave={() => setHoveredChart(null)}
-          >
-            {hoveredChart === chart.id && (
-              <button
-                onClick={() => handleRemoveChart(chart.id)}
-                className="absolute top-1.5 right-1.5 z-10 bg-red-100 p-0.5 rounded-full text-red-600 hover:bg-red-200"
-                title="Remove chart"
-              >
-                <X size={14} />
-              </button>
-            )}
 
-            <ChartDisplay
-              chartContainerRef={React.createRef()}
-              loading={false}
-              error={null}
-              {...chart}
-            />
-          </div>
-        ))}
-      </div>
+      {/* Conditional rendering for charts or a message */}
+      {!cards.length ? (
+        <div className="p-10 text-center text-slate-500">
+          No charts added to this dashboard yet.
+        </div>
+      ) : (
+        <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-2 p-1">
+          {cards.map((chart) => (
+            <div
+              key={chart.id}
+              className={`relative border border-gray-300 rounded-md bg-white p-1 shadow-md transition-all duration-200 ease-in-out transform ${
+                hoveredChart === chart.id ? "scale-[1.02] shadow-lg" : ""
+              }`}
+              draggable
+              onDragStart={(e) => handleDragStart(e, chart.id)}
+              onDragOver={handleDragOver}
+              onDrop={(e) => handleDrop(e, chart.id)}
+              onMouseEnter={() => setHoveredChart(chart.id)}
+              onMouseLeave={() => setHoveredChart(null)}
+            >
+              {hoveredChart === chart.id && (
+                <button
+                  onClick={() => handleRemoveChart(chart.id)}
+                  className="absolute top-1.5 right-1.5 z-10 bg-red-100 p-0.5 rounded-full text-red-600 hover:bg-red-200"
+                  title="Remove chart"
+                >
+                  <X size={14} />
+                </button>
+              )}
+              <ChartDisplay
+                chartContainerRef={React.createRef()}
+                loading={false}
+                error={null}
+                {...chart}
+              />
+            </div>
+          ))}
+        </div>
+      )}
     </div>
   );
 };

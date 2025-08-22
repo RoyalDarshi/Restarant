@@ -350,7 +350,9 @@ const DynamicChartBuilder: React.FC<DynamicChartBuilderProps> = ({
     link.click();
     URL.revokeObjectURL(link.href);
   };
+
   const handleAddToDashboard = () => {
+    // This function no longer checks if dashboards exist and always opens the modal.
     const chart = {
       id: uuidv4(),
       chartType,
@@ -362,40 +364,21 @@ const DynamicChartBuilder: React.FC<DynamicChartBuilderProps> = ({
       aggregationType,
       stacked,
     };
-    if (dashboards.length === 0) {
-      const newId = createDashboard("Default Dashboard");
-      addChartToDashboard(newId, chart);
-      setCurrentDashboardId(newId);
-      setXAxisColumn(null);
-      setYAxisColumns([]);
-      setGroupByColumn(null);
-      setChartData([]);
-      setGeneratedQuery("");
-      setActiveView("graph");
-      setError(null);
-      setSuccessMessage("Added successfully to Default Dashboard");
-      setTimeout(() => setSuccessMessage(null), 3000);
-    } else {
-      setShowDashboardModal(true);
-    }
+    // The chart object is stored in state for the modal to access
+    setChartToAdd(chart);
+    setShowDashboardModal(true);
   };
+
+  // State to hold the chart to be added before the modal is shown
+  const [chartToAdd, setChartToAdd] = useState(null);
+
   const handleCreateAndAdd = () => {
-    if (!newDashboardName) return;
+    if (!newDashboardName || !chartToAdd) return;
     const newId = createDashboard(newDashboardName);
-    const chart = {
-      id: uuidv4(),
-      chartType,
-      chartData,
-      xAxisColumn,
-      yAxisColumns,
-      groupByColumn: effectiveGroupByColumn,
-      uniqueGroupKeys,
-      aggregationType,
-      stacked,
-    };
-    addChartToDashboard(newId, chart);
+    addChartToDashboard(newId, chartToAdd);
     setShowDashboardModal(false);
     setNewDashboardName("");
+    setChartToAdd(null);
     setXAxisColumn(null);
     setYAxisColumns([]);
     setGroupByColumn(null);
@@ -407,19 +390,10 @@ const DynamicChartBuilder: React.FC<DynamicChartBuilderProps> = ({
     setTimeout(() => setSuccessMessage(null), 3000);
   };
   const handleAddToExisting = (dashboardId, dashboardName) => {
-    const chart = {
-      id: uuidv4(),
-      chartType,
-      chartData,
-      xAxisColumn,
-      yAxisColumns,
-      groupByColumn: effectiveGroupByColumn,
-      uniqueGroupKeys,
-      aggregationType,
-      stacked,
-    };
-    addChartToDashboard(dashboardId, chart);
+    if (!chartToAdd) return;
+    addChartToDashboard(dashboardId, chartToAdd);
     setShowDashboardModal(false);
+    setChartToAdd(null);
     setXAxisColumn(null);
     setYAxisColumns([]);
     setGroupByColumn(null);
@@ -554,6 +528,7 @@ const DynamicChartBuilder: React.FC<DynamicChartBuilderProps> = ({
         {/* Views */}
         {activeView === "graph" && (
           <ChartDisplay
+            chartContainerRef={chartContainerRef}
             chartType={chartType}
             chartData={chartData}
             xAxisColumn={xAxisColumn}
@@ -564,7 +539,6 @@ const DynamicChartBuilder: React.FC<DynamicChartBuilderProps> = ({
             loading={loading}
             error={error}
             stacked={stacked}
-            chartContainerRef={chartContainerRef}
           />
         )}
         {activeView === "table" && (
@@ -592,15 +566,19 @@ const DynamicChartBuilder: React.FC<DynamicChartBuilderProps> = ({
           <div className="bg-white p-6 rounded-lg shadow-lg">
             <h2 className="text-lg font-medium mb-4">Choose Dashboard</h2>
             <div className="space-y-2 mb-4">
-              {dashboards.map((d) => (
-                <button
-                  key={d.id}
-                  onClick={() => handleAddToExisting(d.id, d.name)}
-                  className="w-full text-left px-4 py-2 bg-gray-100 rounded hover:bg-gray-200"
-                >
-                  {d.name}
-                </button>
-              ))}
+              {dashboards.length > 0 ? (
+                dashboards.map((d) => (
+                  <button
+                    key={d.id}
+                    onClick={() => handleAddToExisting(d.id, d.name)}
+                    className="w-full text-left px-4 py-2 bg-gray-100 rounded hover:bg-gray-200"
+                  >
+                    {d.name}
+                  </button>
+                ))
+              ) : (
+                <div className="text-center text-slate-500 py-4">No dashboards exist. Please create one below.</div>
+              )}
             </div>
             <div className="flex items-center space-x-2 mb-4">
               <input
