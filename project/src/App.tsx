@@ -107,7 +107,6 @@ function App() {
           })
         );
         setTableColumns(fetchedColumns);
-
 setSecondarySelectedTable(null);
 setSecondaryTableColumns([]);
         console.log(

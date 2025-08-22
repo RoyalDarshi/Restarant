@@ -99,7 +99,7 @@ const ChartDataTable: React.FC<ChartDataTableProps> = ({
     }[] = [];
 
     // Check if the data is grouped based on the `groupByColumn`
-    if (groupByColumn) {
+    if (groupByColumn || chartData.some((row) => "name" in row)) {
       // Create the main 'Name' column from xAxisColumn
       if (xAxisColumn) {
         columns.push({
