@@ -6,61 +6,56 @@ import {
   Search,
   Database,
   ChevronDown,
-  ChevronUp,
 } from "lucide-react";
 
 interface DynamicColumnsPanelProps {
   tableName: string | null;
-  columns: DatabaseColumn[]; // This will be ALL columns from primary and secondary
+  columns: DatabaseColumn[];
   tables: string[];
   onTableChange: (tableName: string) => void;
-  // Props for second table selection
-  secondaryTableName: string | null;
+
+  // ✅ Multiple secondary tables
+  secondaryTableNames: string[];
   secondaryTables: string[];
-  onSecondaryTableChange: (tableName: string) => void;
+  onSecondaryTablesChange: (tables: string[]) => void;
 }
 
 const DynamicColumnsPanel: React.FC<DynamicColumnsPanelProps> = ({
   tableName,
-  columns, // Now contains columns from both primary and secondary
+  columns,
   tables,
   onTableChange,
-  secondaryTableName,
+  secondaryTableNames,
   secondaryTables,
-  onSecondaryTableChange,
+  onSecondaryTablesChange,
 }) => {
   const [searchTerm, setSearchTerm] = useState("");
   const [isExpanded, setIsExpanded] = useState(true);
 
-  // Separate columns by their table origin
   const primaryTableColumns = useMemo(() => {
     return columns.filter((column) => column.tableName === tableName);
   }, [columns, tableName]);
 
   const secondaryTableColumns = useMemo(() => {
-    return columns.filter((column) => column.tableName === secondaryTableName);
-  }, [columns, secondaryTableName]);
+    return columns.filter((column) =>
+      secondaryTableNames.includes(column.tableName)
+    );
+  }, [columns, secondaryTableNames]);
 
-  // Memoize filtered and sorted columns for primary table
   const sortedAndFilteredPrimaryColumns = useMemo(() => {
     const filtered = primaryTableColumns.filter(
       (column) =>
         column.key.toLowerCase().includes(searchTerm.toLowerCase()) ||
-        (column.label || column.key)
-          .toLowerCase()
-          .includes(searchTerm.toLowerCase())
+        (column.label || column.key).toLowerCase().includes(searchTerm.toLowerCase())
     );
     return filtered.sort((a, b) => a.label.localeCompare(b.label));
   }, [primaryTableColumns, searchTerm]);
 
-  // Memoize filtered and sorted columns for secondary table
   const sortedAndFilteredSecondaryColumns = useMemo(() => {
     const filtered = secondaryTableColumns.filter(
       (column) =>
         column.key.toLowerCase().includes(searchTerm.toLowerCase()) ||
-        (column.label || column.key)
-          .toLowerCase()
-          .includes(searchTerm.toLowerCase())
+        (column.label || column.key).toLowerCase().includes(searchTerm.toLowerCase())
     );
     return filtered.sort((a, b) => a.label.localeCompare(b.label));
   }, [secondaryTableColumns, searchTerm]);
@@ -70,17 +65,18 @@ const DynamicColumnsPanel: React.FC<DynamicColumnsPanelProps> = ({
       {isExpanded && (
         <>
           <div className="p-4 border-b border-slate-200">
+            {/* Primary */}
             <div className="relative">
               <label className="block text-sm font-medium text-slate-700 mb-2">
                 Primary Database Table
               </label>
               <div className="relative">
                 <select
-                  className="w-full border border-slate-300 rounded-xl px-4 py-3 text-sm bg-white shadow-sm focus:ring-2 focus:ring-blue-500 focus:border-transparent appearance-none"
+                  className="w-full border border-slate-300 rounded-xl px-4 py-3 text-sm bg-white shadow-sm"
                   value={tableName || ""}
                   onChange={(e) => onTableChange(e.target.value)}
                 >
-                  <option value="" disabled className="text-slate-400">
+                  <option value="" disabled>
                     Choose a table...
                   </option>
                   {tables.map((t) => (
@@ -89,39 +85,38 @@ const DynamicColumnsPanel: React.FC<DynamicColumnsPanelProps> = ({
                     </option>
                   ))}
                 </select>
-                <div className="pointer-events-none absolute inset-y-0 right-0 flex items-center px-3 pt-5 text-slate-500">
-                  <ChevronDown className="h-4 w-4" />
-                </div>
               </div>
             </div>
 
-            {/* Second table selection dropdown */}
+            {/* ✅ Secondary Multi-select (checkboxes) */}
             <div className="relative mt-4">
               <label className="block text-sm font-medium text-slate-700 mb-2">
-                Secondary Database Table
+                Secondary Database Tables
               </label>
-              <div className="relative">
-                <select
-                  className="w-full border border-slate-300 rounded-xl px-4 py-3 text-sm bg-white shadow-sm focus:ring-2 focus:ring-blue-500 focus:border-transparent appearance-none"
-                  value={secondaryTableName || ""}
-                  onChange={(e) => onSecondaryTableChange(e.target.value)}
-                >
-                  <option value="" disabled className="text-slate-400">
-                    Choose a table...
-                  </option>
-                  {secondaryTables.map((t) => (
-                    <option key={t} value={t}>
-                      {t}
-                    </option>
-                  ))}
-                </select>
-                <div className="pointer-events-none absolute inset-y-0 right-0 flex items-center px-3 pt-5 text-slate-500">
-                  <ChevronDown className="h-4 w-4" />
-                </div>
+              <div className="space-y-2 border rounded-lg p-2">
+                {secondaryTables.map((t) => (
+                  <label key={t} className="flex items-center space-x-2">
+                    <input
+                      type="checkbox"
+                      checked={secondaryTableNames.includes(t)}
+                      onChange={(e) => {
+                        if (e.target.checked) {
+                          onSecondaryTablesChange([...secondaryTableNames, t]);
+                        } else {
+                          onSecondaryTablesChange(
+                            secondaryTableNames.filter((name) => name !== t)
+                          );
+                        }
+                      }}
+                    />
+                    <span>{t}</span>
+                  </label>
+                ))}
               </div>
             </div>
 
-            {(tableName || secondaryTableName) && ( // Show search if either table is selected
+            {/* Search */}
+            {(tableName || secondaryTableNames.length > 0) && (
               <div className="mt-4">
                 <label className="block text-sm font-medium text-slate-700 mb-2">
                   Search Columns
@@ -130,7 +125,7 @@ const DynamicColumnsPanel: React.FC<DynamicColumnsPanelProps> = ({
                   <input
                     type="text"
                     placeholder="Search columns..."
-                    className="w-full border border-slate-300 rounded-xl px-4 py-2.5 pl-10 text-sm bg-white shadow-sm focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                    className="w-full border border-slate-300 rounded-xl px-4 py-2.5 pl-10 text-sm bg-white shadow-sm"
                     value={searchTerm}
                     onChange={(e) => setSearchTerm(e.target.value)}
                   />
@@ -140,84 +135,31 @@ const DynamicColumnsPanel: React.FC<DynamicColumnsPanelProps> = ({
             )}
           </div>
 
+          {/* Columns Rendering */}
           <div className="overflow-y-auto max-h-[calc(100vh-350px)] p-2">
-            {tableName || secondaryTableName ? (
+            {tableName && (
               <>
-                {/* Display Primary Table Columns */}
-                {tableName && (
-                  <>
-                    <h3 className="text-md font-semibold text-slate-800 px-2 py-1 bg-slate-100 rounded-md sticky top-0 z-10">
-                      {tableName} Columns
-                    </h3>
-                    {sortedAndFilteredPrimaryColumns.length > 0 ? (
-                      <div className="space-y-2 p-2">
-                        {sortedAndFilteredPrimaryColumns.map((column) => (
-                          <DraggableColumn key={column.key} column={column} />
-                        ))}
-                      </div>
-                    ) : (
-                      <div className="text-center py-4 text-slate-500 text-sm">
-                        No columns found for "{tableName}" matching search.
-                      </div>
-                    )}
-                  </>
-                )}
-
-                {/* Display Secondary Table Columns */}
-                {secondaryTableName && (
-                  <>
-                    <h3 className="text-md font-semibold text-slate-800 px-2 py-1 bg-slate-100 rounded-md sticky top-0 z-10 mt-4">
-                      {secondaryTableName} Columns
-                    </h3>
-                    {sortedAndFilteredSecondaryColumns.length > 0 ? (
-                      <div className="space-y-2 p-2">
-                        {sortedAndFilteredSecondaryColumns.map((column) => (
-                          <DraggableColumn key={column.key} column={column} />
-                        ))}
-                      </div>
-                    ) : (
-                      <div className="text-center py-4 text-slate-500 text-sm">
-                        No columns found for "{secondaryTableName}" matching
-                        search.
-                      </div>
-                    )}
-                  </>
-                )}
-
-                {/* No columns for either table or no search results */}
-                {!tableName && !secondaryTableName ? (
-                  <div className="text-center py-8 text-slate-500">
-                    <div className="bg-gradient-to-r from-blue-100 to-indigo-100 p-4 rounded-full w-16 h-16 mx-auto flex items-center justify-center mb-4">
-                      <Database className="h-8 w-8 text-blue-500" />
-                    </div>
-                    <p>Select a table to view columns</p>
-                    <p className="text-sm mt-1">
-                      Choose from the dropdown above
-                    </p>
-                  </div>
-                ) : (
-                  sortedAndFilteredPrimaryColumns.length === 0 &&
-                  sortedAndFilteredSecondaryColumns.length === 0 &&
-                  searchTerm !== "" && (
-                    <div className="text-center py-8 text-slate-500">
-                      <Columns className="h-12 w-12 mx-auto mb-3 opacity-20" />
-                      <p>No columns match your search</p>
-                      <p className="text-sm mt-1">
-                        Try a different search term
-                      </p>
-                    </div>
-                  )
-                )}
+                <h3 className="text-md font-semibold px-2 py-1 bg-slate-100 sticky top-0">
+                  {tableName} Columns
+                </h3>
+                {sortedAndFilteredPrimaryColumns.map((column) => (
+                  <DraggableColumn key={column.key} column={column} />
+                ))}
               </>
-            ) : (
-              <div className="text-center py-8 text-slate-500">
-                <div className="bg-gradient-to-r from-blue-100 to-indigo-100 p-4 rounded-full w-16 h-16 mx-auto flex items-center justify-center mb-4">
-                  <Database className="h-8 w-8 text-blue-500" />
-                </div>
-                <p>Select a table to view columns</p>
-                <p className="text-sm mt-1">Choose from the dropdown above</p>
-              </div>
             )}
+
+            {secondaryTableNames.map((t) => (
+              <div key={t}>
+                <h3 className="text-md font-semibold px-2 py-1 bg-slate-100 sticky top-0 mt-3">
+                  {t} Columns
+                </h3>
+                {sortedAndFilteredSecondaryColumns
+                  .filter((c) => c.tableName === t)
+                  .map((column) => (
+                    <DraggableColumn key={column.key} column={column} />
+                  ))}
+              </div>
+            ))}
           </div>
         </>
       )}

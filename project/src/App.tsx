@@ -1,6 +1,6 @@
 import React, { useState, useEffect, useMemo } from "react";
-import { BrowserRouter as Router, Routes, Route, Link } from "react-router-dom";
-import { DashboardProvider } from "./components/DashboardContext"; // Import the DashboardProvider
+import { BrowserRouter as Router } from "react-router-dom";
+import { DashboardProvider } from "./components/DashboardContext";
 import Sidebar from "./components/Sidebar";
 import DynamicDataTable from "./components/DynamicDataTable";
 import DynamicChartBuilder from "./components/DynamicChartBuilder";
@@ -32,17 +32,10 @@ function App() {
   const [selectedTable, setSelectedTable] = useState<string | null>(null);
   const [tableColumns, setTableColumns] = useState<UpdatedDatabaseColumn[]>([]);
   const [tables, setTables] = useState<string[]>([]);
-  const [allTableSchemas, setAllTableSchemas] = useState<DatabaseTableSchema[]>(
-    []
-  );
-  const [secondarySelectedTable, setSecondarySelectedTable] = useState<
-    string | null
-  >(null);
-  const [secondaryTableColumns, setSecondaryTableColumns] = useState<
-    UpdatedDatabaseColumn[]
-  >([]);
+  const [allTableSchemas, setAllTableSchemas] = useState<DatabaseTableSchema[]>([]);
+  const [secondaryTableNames, setSecondaryTableNames] = useState<string[]>([]); // ✅ multiple now
 
-  // Fetch table names
+  // Fetch all table names
   useEffect(() => {
     const fetchTableNames = async () => {
       try {
@@ -58,35 +51,26 @@ function App() {
     fetchTableNames();
   }, []);
 
-  // Fetch schemas when charts tab is active
+  // Fetch all schemas (for joins, validation, etc.)
   useEffect(() => {
-    if (
-      activeTab === "charts" &&
-      tables.length > 0 &&
-      allTableSchemas.length === 0
-    ) {
+    if (activeTab === "charts" && tables.length > 0 && allTableSchemas.length === 0) {
       const fetchAllTableSchemas = async () => {
         try {
           const schemas: DatabaseTableSchema[] = [];
-          for (const tableName of tables) {
-            const columnsResponse = await apiService.getTableColumns(tableName);
+          for (const table of tables) {
+            const columnsResponse = await apiService.getTableColumns(table);
             if (columnsResponse.data.success) {
               schemas.push({
-                tableName: tableName,
-                columns: columnsResponse.data.columns.map(
-                  (col: DatabaseColumn) => ({
-                    ...col,
-                    tableName: tableName,
-                  })
-                ),
+                tableName: table,
+                columns: columnsResponse.data.columns.map((col: DatabaseColumn) => ({
+                  ...col,
+                  tableName: table,
+                })),
               });
             }
           }
           setAllTableSchemas(schemas);
-          console.log(
-            "App.tsx: Fetched all table schemas for charts tab:",
-            schemas
-          );
+          console.log("App.tsx: Fetched all table schemas:", schemas);
         } catch (err) {
           console.error("App.tsx: Failed to fetch all table schemas", err);
         }
@@ -95,29 +79,19 @@ function App() {
     }
   }, [activeTab, tables, allTableSchemas.length]);
 
+  // Primary table select
   const handleTableSelect = async (tableName: string) => {
     try {
       const response = await apiService.getTableColumns(tableName);
       if (response.data.success) {
         setSelectedTable(tableName);
-        const fetchedColumns = response.data.columns.map(
-          (col: DatabaseColumn) => ({
-            ...col,
-            tableName: tableName,
-          })
-        );
+        const fetchedColumns = response.data.columns.map((col: DatabaseColumn) => ({
+          ...col,
+          tableName,
+        }));
         setTableColumns(fetchedColumns);
-
-setSecondarySelectedTable(null);
-setSecondaryTableColumns([]);
-        console.log(
-          `App.tsx: Columns fetched for primary table '${tableName}':`,
-          fetchedColumns
-        );
-        if (secondarySelectedTable === tableName) {
-          setSecondarySelectedTable(null);
-          setSecondaryTableColumns([]);
-        }
+        setSecondaryTableNames([]); // reset secondary selections
+        console.log(`App.tsx: Columns fetched for '${tableName}':`, fetchedColumns);
       } else {
         console.error("App.tsx: Failed to get columns", response.error);
       }
@@ -126,69 +100,27 @@ setSecondaryTableColumns([]);
     }
   };
 
-  const handleSecondaryTableSelect = async (tableName: string) => {
-    try {
-      const response = await apiService.getTableColumns(tableName);
-      if (response.data.success) {
-        setSecondarySelectedTable(tableName);
-        const fetchedSecondaryColumns = response.data.columns.map(
-          (col: DatabaseColumn) => ({
-            ...col,
-            tableName: tableName,
-          })
-        );
-        setSecondaryTableColumns(fetchedSecondaryColumns);
-        console.log(
-          `App.tsx: Columns fetched for secondary table '${tableName}':`,
-          fetchedSecondaryColumns
-        );
-      } else {
-        console.error(
-          "App.tsx: Failed to get columns for secondary table",
-          response.error
-        );
-      }
-    } catch (err) {
-      console.error(
-        "App.tsx: Failed to fetch columns for secondary table",
-        err
-      );
-    }
-  };
-
+  // Eligible joinable tables
   const filteredSecondaryTablesForDropdown = useMemo(() => {
-    if (
-      !selectedTable ||
-      tableColumns.length === 0 ||
-      allTableSchemas.length === 0
-    ) {
+    if (!selectedTable || tableColumns.length === 0 || allTableSchemas.length === 0) {
       return [];
     }
-
     const primaryColumnKeys = new Set(tableColumns.map((col) => col.key));
-    const primaryColumnTypes = new Map(
-      tableColumns.map((col) => [col.key, col.type])
-    );
+    const primaryColumnTypes = new Map(tableColumns.map((col) => [col.key, col.type]));
 
-    const eligibleSecondaryTables: string[] = [];
-
-    for (const schema of allTableSchemas) {
-      if (schema.tableName === selectedTable) continue;
-
-      const hasMatchingColumn = schema.columns.some(
-        (secondaryCol) =>
-          primaryColumnKeys.has(secondaryCol.key) &&
-          primaryColumnTypes.get(secondaryCol.key) === secondaryCol.type
-      );
-
-      if (hasMatchingColumn) {
-        eligibleSecondaryTables.push(schema.tableName);
-      }
-    }
-
-    return eligibleSecondaryTables;
+    return allTableSchemas
+      .filter((s) => s.tableName !== selectedTable)
+      .filter((s) =>
+        s.columns.some(
+          (secondaryCol) =>
+            primaryColumnKeys.has(secondaryCol.key) &&
+            primaryColumnTypes.get(secondaryCol.key) === secondaryCol.type
+        )
+      )
+      .map((s) => s.tableName);
   }, [selectedTable, tableColumns, allTableSchemas]);
 
+  // Renderer
   const renderContent = () => {
     switch (activeTab) {
       case "data":
@@ -201,18 +133,18 @@ setSecondaryTableColumns([]);
               />
             </div>
             <div className="col-span-6">
-              {selectedTable && (
-                <DynamicDataTable
-                  tableName={selectedTable}
-                  columns={tableColumns}
-                />
-              )}
+              {selectedTable && <DynamicDataTable tableName={selectedTable} columns={tableColumns} />}
             </div>
           </div>
         );
 
       case "charts":
-        const allColumns = [...tableColumns, ...secondaryTableColumns];
+        // ✅ merge columns (primary + selected secondary)
+        const allSecondaryColumns = allTableSchemas
+          .filter((s) => secondaryTableNames.includes(s.tableName))
+          .flatMap((s) => s.columns);
+
+        const allColumns = [...tableColumns, ...allSecondaryColumns];
 
         return (
           <DragDropProvider>
@@ -223,17 +155,16 @@ setSecondaryTableColumns([]);
                   columns={allColumns}
                   tables={tables}
                   onTableChange={handleTableSelect}
-                  secondaryTableName={secondarySelectedTable}
+                  secondaryTableNames={secondaryTableNames}                  // ✅ new
                   secondaryTables={filteredSecondaryTablesForDropdown}
-                  onSecondaryTableChange={handleSecondaryTableSelect}
+                  onSecondaryTablesChange={setSecondaryTableNames}           // ✅ new
                 />
               </div>
               <div className="xl:col-span-5">
                 <DynamicChartBuilder
                   tableName={selectedTable || ""}
                   columns={tableColumns}
-                  secondaryTableName={secondarySelectedTable || ""}
-                  secondaryColumns={secondaryTableColumns}
+                  secondaryTableNames={secondaryTableNames}                  // ✅ new
                   allTableSchemas={allTableSchemas}
                 />
               </div>
@@ -244,7 +175,7 @@ setSecondaryTableColumns([]);
       case "dashboard":
         return (
           <div className="bg-white rounded-xl shadow-sm border border-slate-200 p-1">
-            <DashboardGrid /> {/* Show the DashboardGrid component */}
+            <DashboardGrid />
           </div>
         );
 
@@ -252,9 +183,7 @@ setSecondaryTableColumns([]);
         return (
           <div className="bg-white rounded-xl shadow-sm border border-slate-200 p-1">
             <h2 className="text-2xl font-bold text-slate-900 mb-4">Settings</h2>
-            <p className="text-slate-600">
-              Dashboard configuration options coming soon...
-            </p>
+            <p className="text-slate-600">Dashboard configuration options coming soon...</p>
           </div>
         );
 
@@ -268,19 +197,7 @@ setSecondaryTableColumns([]);
       <Router>
         <div className="flex h-screen bg-slate-100">
           <Sidebar activeTab={activeTab} onTabChange={setActiveTab} />
-
-          <main className="flex-1 overflow-auto p-0.5">
-            {(tabTitles[activeTab] || tabSubtitles[activeTab]) && (
-              <div className="mb-6">
-                <h1 className="text-3xl font-bold text-slate-900">
-                  {tabTitles[activeTab]}
-                </h1>
-                <p className="text-slate-600 mt-2">{tabSubtitles[activeTab]}</p>
-              </div>
-            )}
-
-            {renderContent()}
-          </main>
+          <main className="flex-1 overflow-auto p-0.5">{renderContent()}</main>
         </div>
       </Router>
     </DashboardProvider>

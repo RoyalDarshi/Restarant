@@ -22,12 +22,12 @@ import ChartDisplay from "./ChartDisplay";
 import { Download, Database } from "lucide-react";
 import { AggregationType, ChartType } from "./types";
 import { formatNumericValue } from "./utils";
-import { useDashboard } from "./DashboardContext"; // Import the dashboard context
+import { useDashboard } from "./DashboardContext";
 
 interface DynamicChartBuilderProps {
   tableName: string;
   columns: DatabaseColumn[];
-  secondaryTableName?: string;
+  secondaryTableNames?: string[];  // ✅ multiple tables
   secondaryColumns?: DatabaseColumn[];
   allTableSchemas: DatabaseTableSchema[];
 }
@@ -35,11 +35,11 @@ interface DynamicChartBuilderProps {
 const DynamicChartBuilder: React.FC<DynamicChartBuilderProps> = ({
   tableName,
   columns,
-  secondaryTableName,
+  secondaryTableNames = [],
   secondaryColumns,
   allTableSchemas,
 }) => {
-  // ─────── State ──────────────────────────────────────────────────────────────
+  // ───── State ─────
   const [xAxisColumn, setXAxisColumn] = useState<DatabaseColumn | null>(null);
   const [yAxisColumns, setYAxisColumns] = useState<DatabaseColumn[]>([]);
   const [groupByColumn, setGroupByColumn] = useState<DatabaseColumn | null>(
@@ -58,7 +58,7 @@ const DynamicChartBuilder: React.FC<DynamicChartBuilderProps> = ({
   );
   const [uniqueGroupKeys, setUniqueGroupKeys] = useState<string[]>([]);
 
-  // Reset ALL selections and chart data whenever primary or secondary table changes
+  // Reset when table selections change
   useEffect(() => {
     setXAxisColumn(null);
     setYAxisColumns([]);
@@ -68,93 +68,112 @@ const DynamicChartBuilder: React.FC<DynamicChartBuilderProps> = ({
     setUniqueGroupKeys([]);
     setActiveView("graph");
     setError(null);
-  }, [tableName, secondaryTableName]);
+  }, [tableName, secondaryTableNames]);
 
   const chartContainerRef = useRef<HTMLDivElement>(null);
 
-  // Dashboard context
+  // Dashboard
   const { addChart } = useDashboard();
   const [successMessage, setSuccessMessage] = useState<string | null>(null);
 
-  // ─────── Helpers ────────────────────────────────────────────────────────────
-
+  // ───── Helpers ─────
   const normalizeType = (type: string): "string" | "number" => {
     const lower = type.toLowerCase();
     if (lower.includes("char") || lower === "text") return "string";
     if (
       lower.includes("int") ||
-      lower === "float" ||
-      lower === "double" ||
-      lower === "decimal" ||
+      lower.includes("float") ||
+      lower.includes("double") ||
+      lower.includes("decimal") ||
+      lower.includes("numeric") ||
+      lower.includes("real") ||
       lower === "number"
     )
       return "number";
     return "string";
   };
 
+  // Avoid duplicating groupBy if it's same as xAxis
   const effectiveGroupByColumn = useMemo<DatabaseColumn | null>(() => {
     if (!groupByColumn || !xAxisColumn) return null;
     return groupByColumn.key === xAxisColumn.key ? null : groupByColumn;
   }, [groupByColumn, xAxisColumn]);
 
-  const inferredJoinColumn = useMemo<string | undefined>(() => {
-    if (!secondaryTableName) return undefined;
+  // ✅ Infer join columns for all secondary tables
+  const inferredJoinColumns = useMemo<Record<string, string | undefined>>(() => {
+    if (!secondaryTableNames.length) return {};
+    const result: Record<string, string | undefined> = {};
     const pSchema = allTableSchemas.find((s) => s.tableName === tableName);
-    const sSchema = allTableSchemas.find(
-      (s) => s.tableName === secondaryTableName
-    );
-    if (!pSchema || !sSchema) return undefined;
-    for (const pCol of pSchema.columns) {
-      for (const sCol of sSchema.columns) {
-        if (pCol.key === sCol.key && pCol.type === sCol.type) {
-          return pCol.key;
+    if (!pSchema) return result;
+
+    secondaryTableNames.forEach((sTable) => {
+      const sSchema = allTableSchemas.find((s) => s.tableName === sTable);
+      if (!sSchema) return;
+      for (const pCol of pSchema.columns) {
+        for (const sCol of sSchema.columns) {
+          if (pCol.key === sCol.key && pCol.type === sCol.type) {
+            result[sTable] = pCol.key;
+            return;
+          }
         }
       }
-    }
-    return undefined;
-  }, [tableName, secondaryTableName, allTableSchemas]);
+    });
 
+    return result;
+  }, [tableName, secondaryTableNames, allTableSchemas]);
+
+  // ✅ Build SQL preview string
   const constructSqlQuery = useCallback(() => {
     if (!xAxisColumn || yAxisColumns.length === 0) return "";
 
     const pAlias = "t1";
-    const sAlias = "t2";
+    let aliasCounter = 2;
+    const tableAliases: Record<string, string> = {};
+    secondaryTableNames.forEach((t) => {
+      tableAliases[t] = `t${aliasCounter++}`;
+    });
+
+    const usesSecondary = secondaryTableNames.length > 0;
+
+    const qual = (col: DatabaseColumn) => {
+      if (usesSecondary && col.tableName !== tableName) {
+        const alias = tableAliases[col.tableName];
+        return `${alias}."${col.key}"`;
+      }
+      return `${pAlias}."${col.key}"`;
+    };
+
     const sel: string[] = [];
     const grp: string[] = [];
 
-    const usesSecondary =
-      secondaryTableName &&
-      inferredJoinColumn &&
-      (xAxisColumn.tableName === secondaryTableName ||
-        yAxisColumns.some((c) => c.tableName === secondaryTableName) ||
-        effectiveGroupByColumn?.tableName === secondaryTableName);
-
-    const qual = (col: DatabaseColumn) =>
-      usesSecondary && col.tableName === secondaryTableName
-        ? `${sAlias}."${col.key}"`
-        : `${pAlias}."${col.key}"`;
-
+    // X-axis
     sel.push(`${qual(xAxisColumn)} AS name`);
     grp.push(qual(xAxisColumn));
 
+    // Group By
     if (effectiveGroupByColumn) {
       sel.push(`${qual(effectiveGroupByColumn)}`);
       grp.push(qual(effectiveGroupByColumn));
     }
 
+    // Y axes
     yAxisColumns.forEach((col) => {
-      const agg =
-        normalizeType(col.type) === "string" ? "COUNT" : aggregationType;
+      const agg = normalizeType(col.type) === "string" ? "COUNT" : aggregationType;
       sel.push(`${agg}(${qual(col)}) AS "${col.key}"`);
     });
 
+    // Base
     let sql = `SELECT ${sel.join(", ")}\nFROM "${tableName}" AS ${pAlias}`;
-    if (usesSecondary && secondaryTableName && inferredJoinColumn) {
-      sql +=
-        `\nINNER JOIN "${secondaryTableName}" AS ${sAlias}` +
-        `\n  ON ${pAlias}."${inferredJoinColumn}"` +
-        ` = ${sAlias}."${inferredJoinColumn}"`;
-    }
+
+    // Add joins
+    secondaryTableNames.forEach((t) => {
+      const alias = tableAliases[t];
+      const joinCol = inferredJoinColumns[t];
+      if (joinCol) {
+        sql +=
+          `\nINNER JOIN "${t}" AS ${alias} ON ${pAlias}."${joinCol}" = ${alias}."${joinCol}"`;
+      }
+    });
 
     if (grp.length) {
       sql += `\nGROUP BY ${grp.join(", ")}`;
@@ -168,10 +187,11 @@ const DynamicChartBuilder: React.FC<DynamicChartBuilderProps> = ({
     yAxisColumns,
     effectiveGroupByColumn,
     aggregationType,
-    secondaryTableName,
-    inferredJoinColumn,
+    secondaryTableNames,
+    inferredJoinColumns,
   ]);
 
+  // ───── Fetch Data when config changes ─────
   useEffect(() => {
     if (!xAxisColumn || yAxisColumns.length === 0) {
       setChartData([]);
@@ -194,6 +214,7 @@ const DynamicChartBuilder: React.FC<DynamicChartBuilderProps> = ({
     const aggTypes = yAxisColumns.map((col) =>
       normalizeType(col.type) === "string" ? "COUNT" : aggregationType
     );
+
     const xReq: AggregationColumn = {
       key: xAxisColumn.key,
       tableName: xAxisColumn.tableName,
@@ -215,8 +236,8 @@ const DynamicChartBuilder: React.FC<DynamicChartBuilderProps> = ({
       yAxes: yReqs,
       groupBy: gReq,
       aggregationTypes: aggTypes,
-      secondaryTableName,
-      joinColumn: inferredJoinColumn,
+      secondaryTableNames,    // ✅ send array
+      joinColumns: inferredJoinColumns, // ✅ map { tableName: joinCol }
     };
 
     apiService
@@ -240,40 +261,26 @@ const DynamicChartBuilder: React.FC<DynamicChartBuilderProps> = ({
             });
             processed = pivot;
 
-            // collect group keys locally
             const groupKeys = Array.from(
               new Set(resp.data.map((r) => r[effectiveGroupByColumn.key]))
             );
             setUniqueGroupKeys(groupKeys);
 
-            // ✅ sort by total of all groups
             processed = processed.sort((a, b) => {
               const sumA = groupKeys.reduce((acc, g) => acc + (a[g] || 0), 0);
               const sumB = groupKeys.reduce((acc, g) => acc + (b[g] || 0), 0);
-              return sumB - sumA; // descending
+              return sumB - sumA;
             });
           } else {
             setUniqueGroupKeys([]);
-            // fallback: normal yAxis sort
             if (processed.length > 0 && yAxisColumns.length > 0) {
               const yKey = yAxisColumns[0].key;
               processed = processed.sort((a, b) => {
                 const aVal = Number(a[yKey]) || 0;
                 const bVal = Number(b[yKey]) || 0;
-                return bVal - aVal; // descending
+                return bVal - aVal;
               });
             }
-          }
-
-
-          // 🔥 New sorting logic here
-          if (processed.length > 0 && yAxisColumns.length > 0) {
-            const yKey = yAxisColumns[0].key;
-            processed = [...processed].sort((a, b) => {
-              const aVal = Number(a[yKey]) || 0;
-              const bVal = Number(b[yKey]) || 0;
-              return bVal - aVal; // ascending
-            });
           }
 
           setChartData(processed);
@@ -298,11 +305,12 @@ const DynamicChartBuilder: React.FC<DynamicChartBuilderProps> = ({
     effectiveGroupByColumn,
     aggregationType,
     constructSqlQuery,
-    secondaryTableName,
-    inferredJoinColumn,
+    secondaryTableNames,
+    inferredJoinColumns,
     chartType,
   ]);
 
+  // ───── Handlers ─────
   const handleDrop = (col: DatabaseColumn, axis: "x" | "y" | "group") => {
     if (axis === "x") setXAxisColumn(col);
     if (axis === "y")
@@ -311,12 +319,13 @@ const DynamicChartBuilder: React.FC<DynamicChartBuilderProps> = ({
       );
     if (axis === "group") setGroupByColumn(col);
   };
+
   const handleRemove = (col: DatabaseColumn, axis: "x" | "y" | "group") => {
     if (axis === "x") setXAxisColumn(null);
-    if (axis === "y")
-      setYAxisColumns((prev) => prev.filter((c) => c.key !== col.key));
+    if (axis === "y") setYAxisColumns((prev) => prev.filter((c) => c.key !== col.key));
     if (axis === "group") setGroupByColumn(null);
   };
+
   const handleDownloadGraph = () => {
     if (!chartContainerRef.current) return;
     html2canvas(chartContainerRef.current, { useCORS: true, scale: 2 }).then(
@@ -328,6 +337,7 @@ const DynamicChartBuilder: React.FC<DynamicChartBuilderProps> = ({
       }
     );
   };
+
   const handleDownloadTable = () => {
     if (!chartData.length) return;
     const headers = [
@@ -362,7 +372,7 @@ const DynamicChartBuilder: React.FC<DynamicChartBuilderProps> = ({
     URL.revokeObjectURL(link.href);
   };
 
-  // ─────── Render ──────────────────────────────────────────────────────────────
+  // ───── Render ─────
   if (!tableName) {
     return (
       <div className="bg-gradient-to-br from-white to-blue-50 rounded-xl shadow-sm border border-slate-200 p-8">
@@ -442,7 +452,7 @@ const DynamicChartBuilder: React.FC<DynamicChartBuilderProps> = ({
           groupByColumn={effectiveGroupByColumn}
         />
 
-        {/* Download */}
+        {/* Downloads */}
         {chartData.length > 0 && (
           <div className="flex items-center space-x-2 ml-auto mb-2">
             {activeView === "graph" && (
@@ -465,13 +475,15 @@ const DynamicChartBuilder: React.FC<DynamicChartBuilderProps> = ({
             )}
           </div>
         )}
+
         {/* Success message */}
         {successMessage && (
           <div className="mb-2 px-4 py-2 bg-green-100 text-green-800 rounded">
             {successMessage}
           </div>
         )}
-        {/* Add to Dashboard Button */}
+
+        {/* Add to Dashboard */}
         {activeView === "graph" && chartData.length > 0 && (
           <div className="flex justify-end mb-2">
             <button

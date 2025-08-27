@@ -1,35 +1,20 @@
 import { Router } from "express";
-import { _query } from "../database/connection.js";  // Importing _query from mysql2 connection
+import { _query } from "../database/connection.js";  // MySQL2 connection
 const router = Router();
 
 // POST /analytics/aggregate
 router.post("/aggregate", async (req, res) => {
   try {
     const {
-      tableName, // Primary table
-      xAxis, // Expected to be { key: string, tableName: string }
-      yAxes, // Array<{ key: string, tableName: string }>
-      groupBy, // Optional: { key: string, tableName: string }
-      aggregationTypes, // Array of aggregation function names like 'SUM', 'COUNT'
-      filters = [],
-      secondaryTableName, // Optional: table for join
-      joinColumn, // Optional: column to join on
+      tableName,             // Primary table
+      xAxis,                 // { key: string, tableName: string }
+      yAxes,                 // Array<{ key: string, tableName: string }>
+      groupBy,               // Optional { key: string, tableName: string }
+      aggregationTypes,      // Array of aggregation names like 'SUM', 'COUNT'
+      filters = [],          // Optional filters
+      secondaryTableNames = [],   // ✅ multiple tables now
+      joinColumns = {},           // ✅ map { tableName -> joinColumnKey }
     } = req.body;
-
-    // --- Debug Logging ---
-    console.log("Received Aggregation Request:");
-    console.log("  Primary Table:", tableName);
-    console.log("  Secondary Table:", secondaryTableName);
-    console.log("  Join Column:", joinColumn);
-    console.log("  X-Axis:", xAxis?.key, "from", xAxis?.tableName);
-    yAxes.forEach((col, i) => {
-      console.log(`  Y-Axis ${i + 1}:`, col?.key, "from", col?.tableName);
-    });
-    if (groupBy) {
-      console.log("  Group By:", groupBy.key, "from", groupBy.tableName);
-    } else {
-      console.log("  No Group By");
-    }
 
     // --- Validation ---
     if (
@@ -40,114 +25,100 @@ router.post("/aggregate", async (req, res) => {
       !aggregationTypes ||
       aggregationTypes.length !== yAxes.length
     ) {
-      return res.status(400).json({
-        success: false,
-        error: "Missing or invalid required parameters",
-      });
+      return res.status(400).json({ success: false, error: "Missing or invalid parameters" });
     }
 
     if (!xAxis.key || !xAxis.tableName) {
-      return res.status(400).json({
-        success: false,
-        error: "Invalid xAxis column or table name",
-      });
+      return res.status(400).json({ success: false, error: "Invalid xAxis column" });
     }
 
     for (const col of yAxes) {
       if (!col || !col.key || !col.tableName) {
-        return res.status(400).json({
-          success: false,
-          error: `Invalid yAxis column: ${JSON.stringify(col)}`,
-        });
+        return res.status(400).json({ success: false, error: `Invalid yAxis column: ${JSON.stringify(col)}` });
       }
     }
 
     if (groupBy && (!groupBy.key || !groupBy.tableName)) {
-      return res.status(400).json({
-        success: false,
-        error: "Invalid groupBy column or table name",
-      });
+      return res.status(400).json({ success: false, error: "Invalid groupBy column" });
     }
 
-    const quoted = (col) => `\`${col}\``; // MySQL uses backticks for identifiers
-    const needsJoin = secondaryTableName && joinColumn;
+    // Helpers
+    const quoted = (col) => `\`${col}\``;
+    const primaryAlias = "t1";
+    let aliasCounter = 2;
+    const tableAliases = {}; // { secTable -> alias }
+    secondaryTableNames.forEach((t) => {
+      tableAliases[t] = `t${aliasCounter++}`;
+    });
 
-    const primaryTableAlias = "t1";
-    const secondaryTableAlias = "t2";
-
-    const selectParts = [];
-    const groupByParts = [];
-
-    const getQualifiedColumn = (columnObj) => {
-      if (!columnObj || !columnObj.key) {
+    const getQualifiedColumn = (col) => {
+      if (!col || !col.key || !col.tableName) {
         throw new Error("Invalid column object");
       }
-      if (needsJoin && columnObj.tableName === secondaryTableName) {
-        return `${secondaryTableAlias}.${quoted(columnObj.key)}`;
-      }
-      return `${primaryTableAlias}.${quoted(columnObj.key)}`;
+      if (col.tableName === tableName) return `${primaryAlias}.${quoted(col.key)}`;
+      const alias = tableAliases[col.tableName];
+      return `${alias}.${quoted(col.key)}`;
     };
+
+    // --- SELECT construction ---
+    const selectParts = [];
+    const groupByParts = [];
 
     // X-axis
     selectParts.push(`${getQualifiedColumn(xAxis)} AS name`);
     groupByParts.push(getQualifiedColumn(xAxis));
 
-    // Group by (if exists and not same as xAxis)
+    // Group By
     if (groupBy && groupBy.key !== xAxis.key) {
-      selectParts.push(
-        `${getQualifiedColumn(groupBy)} AS ${quoted(groupBy.key)}`
-      );
+      selectParts.push(`${getQualifiedColumn(groupBy)} AS ${quoted(groupBy.key)}`);
       groupByParts.push(getQualifiedColumn(groupBy));
     }
 
-    // Y-axes with aggregation
+    // Y-Axes with aggregation
     yAxes.forEach((col, idx) => {
-      const agg = aggregationTypes[idx];
-      selectParts.push(
-        `CAST(${agg}(${getQualifiedColumn(col)}) AS SIGNED) AS ${quoted(col.key)}`
-      );
+      const agg = aggregationTypes[idx].toUpperCase();
+      const allowedAggs = ["SUM", "COUNT", "AVG", "MIN", "MAX"];
+      if (!allowedAggs.includes(agg)) {
+        throw new Error(`Invalid aggregation: ${agg}`);
+      }
+      selectParts.push(`${agg}(${getQualifiedColumn(col)}) AS ${quoted(col.key)}`);
     });
 
-    // FROM + JOIN
-    let query = `SELECT ${selectParts.join(", ")} FROM ${quoted(tableName)} AS ${primaryTableAlias}`;
-    if (needsJoin) {
-      query += ` INNER JOIN ${quoted(secondaryTableName)} AS ${secondaryTableAlias} ON ${primaryTableAlias}.${quoted(joinColumn)} = ${secondaryTableAlias}.${quoted(joinColumn)}`;
-    }
+    // --- FROM + JOIN ---
+    let query = `SELECT ${selectParts.join(", ")} FROM ${quoted(tableName)} AS ${primaryAlias}`;
+
+    secondaryTableNames.forEach((t) => {
+      const alias = tableAliases[t];
+      const joinCol = joinColumns[t];
+      if (joinCol) {
+        query += ` INNER JOIN ${quoted(t)} AS ${alias} ON ${primaryAlias}.${quoted(joinCol)} = ${alias}.${quoted(joinCol)}`;
+      }
+    });
 
     const queryParams = [];
 
-    // WHERE clause (
-    // WHERE clause (filters)
+    // --- Filters ---
     if (filters.length > 0) {
-      const whereParts = filters.map((filter, i) => {
+      const whereParts = filters.map((filter) => {
         queryParams.push(filter.value);
-        return `${primaryTableAlias}.${quoted(filter.column)} ${
-          filter.operator
-        } ?`;  // Using `?` as the placeholder for the filter value
+        return `${getQualifiedColumn(filter)} ${filter.operator} ?`;
       });
       query += ` WHERE ${whereParts.join(" AND ")}`;
     }
 
-    // GROUP BY + ORDER BY
-    query += ` GROUP BY ${groupByParts.join(", ")}`;
-    query += ` ORDER BY ${groupByParts.join(", ")}`;
+    // --- GROUP BY / ORDER BY ---
+    if (groupByParts.length > 0) {
+      query += ` GROUP BY ${groupByParts.join(", ")} ORDER BY ${groupByParts.join(", ")}`;
+    }
 
     console.log("Generated SQL Query:", query);
 
-    // Execute the query and return the results
+    // --- Execute ---
     const result = await _query(query, queryParams);
-
-    res.json({
-      success: true,
-      data: result,
-      query,
-    });
+    res.json({ success: true, data: result, query });
   } catch (error) {
     console.error("Error in /aggregate:", error);
-    res.status(500).json({
-      success: false,
-      error: "Failed to aggregate data: " + error.message,
-    });
+    res.status(500).json({ success: false, error: "Failed to aggregate data: " + error.message });
   }
 });
 
