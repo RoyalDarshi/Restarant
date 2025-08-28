@@ -27,7 +27,7 @@ import { useDashboard } from "./DashboardContext";
 interface DynamicChartBuilderProps {
   tableName: string;
   columns: DatabaseColumn[];
-  secondaryTableName?: string;
+  secondaryTableNames?: string[]; // ✅ multiple tables
   secondaryColumns?: DatabaseColumn[];
   allTableSchemas: DatabaseTableSchema[];
 }
@@ -35,27 +35,30 @@ interface DynamicChartBuilderProps {
 const DynamicChartBuilder: React.FC<DynamicChartBuilderProps> = ({
   tableName,
   columns,
-  secondaryTableName,
+  secondaryTableNames = [],
   secondaryColumns,
   allTableSchemas,
 }) => {
-  // ─────── State ──────────────────────────────────────────────────────────────
-  const [xAxisColumn, setXAxisColumn] = useState(null);
-  const [yAxisColumns, setYAxisColumns] = useState([]);
-  const [groupByColumn, setGroupByColumn] = useState(null);
-  const [chartType, setChartType] = useState("bar");
-  const [aggregationType, setAggregationType] = useState("SUM");
-  const [chartData, setChartData] = useState([]);
+  // ───── State ─────
+  const [xAxisColumn, setXAxisColumn] = useState<DatabaseColumn | null>(null);
+  const [yAxisColumns, setYAxisColumns] = useState<DatabaseColumn[]>([]);
+  const [groupByColumn, setGroupByColumn] = useState<DatabaseColumn | null>(
+    null
+  );
+  const [chartType, setChartType] = useState<ChartType>("bar");
+  const [aggregationType, setAggregationType] =
+    useState<AggregationType>("SUM");
+  const [chartData, setChartData] = useState<any[]>([]);
   const [loading, setLoading] = useState(false);
-  const [error, setError] = useState(null);
+  const [error, setError] = useState<string | null>(null);
   const [stacked, setStacked] = useState(true);
-  const [generatedQuery, setGeneratedQuery] = useState("");
-  const [activeView, setActiveView] = useState("graph");
-  const [uniqueGroupKeys, setUniqueGroupKeys] = useState([]);
-  const [showDashboardModal, setShowDashboardModal] = useState(false);
-  const [newDashboardName, setNewDashboardName] = useState("");
+  const [generatedQuery, setGeneratedQuery] = useState<string>("");
+  const [activeView, setActiveView] = useState<"graph" | "table" | "query">(
+    "graph"
+  );
+  const [uniqueGroupKeys, setUniqueGroupKeys] = useState<string[]>([]);
 
-  // Reset ALL selections and chart data whenever primary or secondary table changes
+  // Reset when table selections change
   useEffect(() => {
     setXAxisColumn(null);
     setYAxisColumns([]);
@@ -65,95 +68,114 @@ const DynamicChartBuilder: React.FC<DynamicChartBuilderProps> = ({
     setUniqueGroupKeys([]);
     setActiveView("graph");
     setError(null);
-  }, [tableName, secondaryTableName]);
-  const chartContainerRef = useRef(null);
+  }, [tableName, secondaryTableNames]);
 
-  // Dashboard context
-  const {
-    dashboards,
-    addChartToDashboard,
-    createDashboard,
-    setCurrentDashboardId,
-  } = useDashboard();
-  const [successMessage, setSuccessMessage] = useState(null);
+  const chartContainerRef = useRef<HTMLDivElement>(null);
 
-  // ─────── Helpers ────────────────────────────────────────────────────────────
+  // Dashboard
+  const { addChart } = useDashboard();
+  const [successMessage, setSuccessMessage] = useState<string | null>(null);
 
-  const normalizeType = (type) => {
+  // ───── Helpers ─────
+  const normalizeType = (type: string): "string" | "number" => {
     const lower = type.toLowerCase();
     if (lower.includes("char") || lower === "text") return "string";
     if (
       lower.includes("int") ||
-      lower === "float" ||
-      lower === "double" ||
-      lower === "decimal" ||
+      lower.includes("float") ||
+      lower.includes("double") ||
+      lower.includes("decimal") ||
+      lower.includes("numeric") ||
+      lower.includes("real") ||
       lower === "number"
     )
       return "number";
     return "string";
   };
 
-  const effectiveGroupByColumn = useMemo(() => {
+  // Avoid duplicating groupBy if it's same as xAxis
+  const effectiveGroupByColumn = useMemo<DatabaseColumn | null>(() => {
     if (!groupByColumn || !xAxisColumn) return null;
     return groupByColumn.key === xAxisColumn.key ? null : groupByColumn;
   }, [groupByColumn, xAxisColumn]);
-  const inferredJoinColumn = useMemo(() => {
-    if (!secondaryTableName) return undefined;
+
+  // ✅ Infer join columns for all secondary tables
+  const inferredJoinColumns = useMemo<
+    Record<string, string | undefined>
+  >(() => {
+    if (!secondaryTableNames.length) return {};
+    const result: Record<string, string | undefined> = {};
     const pSchema = allTableSchemas.find((s) => s.tableName === tableName);
-    const sSchema = allTableSchemas.find(
-      (s) => s.tableName === secondaryTableName
-    );
-    if (!pSchema || !sSchema) return undefined;
-    for (const pCol of pSchema.columns) {
-      for (const sCol of sSchema.columns) {
-        if (pCol.key === sCol.key && pCol.type === sCol.type) {
-          return pCol.key;
+    if (!pSchema) return result;
+
+    secondaryTableNames.forEach((sTable) => {
+      const sSchema = allTableSchemas.find((s) => s.tableName === sTable);
+      if (!sSchema) return;
+      for (const pCol of pSchema.columns) {
+        for (const sCol of sSchema.columns) {
+          if (pCol.key === sCol.key && pCol.type === sCol.type) {
+            result[sTable] = pCol.key;
+            return;
+          }
         }
       }
-    }
-    return undefined;
-  }, [tableName, secondaryTableName, allTableSchemas]);
+    });
+
+    return result;
+  }, [tableName, secondaryTableNames, allTableSchemas]);
+
+  // ✅ Build SQL preview string
   const constructSqlQuery = useCallback(() => {
     if (!xAxisColumn || yAxisColumns.length === 0) return "";
 
     const pAlias = "t1";
-    const sAlias = "t2";
-    const sel = [];
-    const grp = [];
+    let aliasCounter = 2;
+    const tableAliases: Record<string, string> = {};
+    secondaryTableNames.forEach((t) => {
+      tableAliases[t] = `t${aliasCounter++}`;
+    });
 
-    const usesSecondary =
-      secondaryTableName &&
-      inferredJoinColumn &&
-      (xAxisColumn.tableName === secondaryTableName ||
-        yAxisColumns.some((c) => c.tableName === secondaryTableName) ||
-        effectiveGroupByColumn?.tableName === secondaryTableName);
+    const usesSecondary = secondaryTableNames.length > 0;
 
-    const qual = (col) =>
-      usesSecondary && col.tableName === secondaryTableName
-        ? `${sAlias}."${col.key}"`
-        : `${pAlias}."${col.key}"`;
+    const qual = (col: DatabaseColumn) => {
+      if (usesSecondary && col.tableName !== tableName) {
+        const alias = tableAliases[col.tableName];
+        return `${alias}."${col.key}"`;
+      }
+      return `${pAlias}."${col.key}"`;
+    };
 
+    const sel: string[] = [];
+    const grp: string[] = [];
+
+    // X-axis
     sel.push(`${qual(xAxisColumn)} AS name`);
     grp.push(qual(xAxisColumn));
 
+    // Group By
     if (effectiveGroupByColumn) {
       sel.push(`${qual(effectiveGroupByColumn)}`);
       grp.push(qual(effectiveGroupByColumn));
     }
 
+    // Y axes
     yAxisColumns.forEach((col) => {
       const agg =
         normalizeType(col.type) === "string" ? "COUNT" : aggregationType;
       sel.push(`${agg}(${qual(col)}) AS "${col.key}"`);
     });
 
+    // Base
     let sql = `SELECT ${sel.join(", ")}\nFROM "${tableName}" AS ${pAlias}`;
-    if (usesSecondary && secondaryTableName && inferredJoinColumn) {
-      sql +=
-        `\nINNER JOIN "${secondaryTableName}" AS ${sAlias}` +
-        `\n  ON ${pAlias}."${inferredJoinColumn}"` +
-        ` = ${sAlias}."${inferredJoinColumn}"`;
-    }
+
+    // Add joins
+    secondaryTableNames.forEach((t) => {
+      const alias = tableAliases[t];
+      const joinCol = inferredJoinColumns[t];
+      if (joinCol) {
+        sql += `\nINNER JOIN "${t}" AS ${alias} ON ${pAlias}."${joinCol}" = ${alias}."${joinCol}"`;
+      }
+    });
 
     if (grp.length) {
       sql += `\nGROUP BY ${grp.join(", ")}`;
@@ -167,9 +189,11 @@ const DynamicChartBuilder: React.FC<DynamicChartBuilderProps> = ({
     yAxisColumns,
     effectiveGroupByColumn,
     aggregationType,
-    secondaryTableName,
-    inferredJoinColumn,
+    secondaryTableNames,
+    inferredJoinColumns,
   ]);
+
+  // ───── Fetch Data when config changes ─────
   useEffect(() => {
     if (!xAxisColumn || yAxisColumns.length === 0) {
       setChartData([]);
@@ -192,11 +216,12 @@ const DynamicChartBuilder: React.FC<DynamicChartBuilderProps> = ({
     const aggTypes = yAxisColumns.map((col) =>
       normalizeType(col.type) === "string" ? "COUNT" : aggregationType
     );
-    const xReq = {
+
+    const xReq: AggregationColumn = {
       key: xAxisColumn.key,
       tableName: xAxisColumn.tableName,
     };
-    const yReqs = yAxisColumns.map((col) => ({
+    const yReqs: AggregationColumn[] = yAxisColumns.map((col) => ({
       key: col.key,
       tableName: col.tableName,
     }));
@@ -207,33 +232,25 @@ const DynamicChartBuilder: React.FC<DynamicChartBuilderProps> = ({
         }
       : undefined;
 
-    const request = {
+    const request: AggregationRequest = {
       tableName,
       xAxis: xReq,
       yAxes: yReqs,
       groupBy: gReq,
       aggregationTypes: aggTypes,
-      secondaryTableName,
-      joinColumn: inferredJoinColumn,
+      secondaryTableNames, // ✅ send array
+      joinColumns: inferredJoinColumns, // ✅ map { tableName: joinCol }
     };
+
     apiService
       .getAggregatedData(request)
       .then((resp) => {
         if (resp.success && resp.data) {
           let processed = resp.data;
 
-          // 🔥 Filter out rows where x-axis or y values are null/undefined
-          processed = processed.filter((row) => {
-            if (!row.name) return false; // x-axis is null/empty
-            return yAxisColumns.every(
-              (col) => row[col.key] !== null && row[col.key] !== undefined
-            );
-          });
-
           if (effectiveGroupByColumn && processed.length) {
             const pivot: any[] = [];
             resp.data.forEach((row) => {
-              if (!row.name || row[effectiveGroupByColumn.key] == null) return; // skip invalid
               const x = row.name;
               const g = row[effectiveGroupByColumn.key];
               const y = row[yAxisColumns[0].key];
@@ -290,11 +307,13 @@ const DynamicChartBuilder: React.FC<DynamicChartBuilderProps> = ({
     effectiveGroupByColumn,
     aggregationType,
     constructSqlQuery,
-    secondaryTableName,
-    inferredJoinColumn,
+    secondaryTableNames,
+    inferredJoinColumns,
     chartType,
   ]);
-  const handleDrop = (col, axis) => {
+
+  // ───── Handlers ─────
+  const handleDrop = (col: DatabaseColumn, axis: "x" | "y" | "group") => {
     if (axis === "x") setXAxisColumn(col);
     if (axis === "y")
       setYAxisColumns((prev) =>
@@ -302,12 +321,14 @@ const DynamicChartBuilder: React.FC<DynamicChartBuilderProps> = ({
       );
     if (axis === "group") setGroupByColumn(col);
   };
-  const handleRemove = (col, axis) => {
+
+  const handleRemove = (col: DatabaseColumn, axis: "x" | "y" | "group") => {
     if (axis === "x") setXAxisColumn(null);
     if (axis === "y")
       setYAxisColumns((prev) => prev.filter((c) => c.key !== col.key));
     if (axis === "group") setGroupByColumn(null);
   };
+
   const handleDownloadGraph = () => {
     if (!chartContainerRef.current) return;
     html2canvas(chartContainerRef.current, { useCORS: true, scale: 2 }).then(
@@ -319,6 +340,7 @@ const DynamicChartBuilder: React.FC<DynamicChartBuilderProps> = ({
       }
     );
   };
+
   const handleDownloadTable = () => {
     if (!chartData.length) return;
     const headers = [
@@ -353,60 +375,7 @@ const DynamicChartBuilder: React.FC<DynamicChartBuilderProps> = ({
     URL.revokeObjectURL(link.href);
   };
 
-  const handleAddToDashboard = () => {
-    // This function no longer checks if dashboards exist and always opens the modal.
-    const chart = {
-      id: uuidv4(),
-      chartType,
-      chartData,
-      xAxisColumn,
-      yAxisColumns,
-      groupByColumn: effectiveGroupByColumn,
-      uniqueGroupKeys,
-      aggregationType,
-      stacked,
-    };
-    // The chart object is stored in state for the modal to access
-    setChartToAdd(chart);
-    setShowDashboardModal(true);
-  };
-
-  // State to hold the chart to be added before the modal is shown
-  const [chartToAdd, setChartToAdd] = useState(null);
-
-  const handleCreateAndAdd = () => {
-    if (!newDashboardName || !chartToAdd) return;
-    const newId = createDashboard(newDashboardName);
-    addChartToDashboard(newId, chartToAdd);
-    setShowDashboardModal(false);
-    setNewDashboardName("");
-    setChartToAdd(null);
-    setXAxisColumn(null);
-    setYAxisColumns([]);
-    setGroupByColumn(null);
-    setChartData([]);
-    setGeneratedQuery("");
-    setActiveView("graph");
-    setError(null);
-    setSuccessMessage(`Added successfully to ${newDashboardName}`);
-    setTimeout(() => setSuccessMessage(null), 3000);
-  };
-  const handleAddToExisting = (dashboardId, dashboardName) => {
-    if (!chartToAdd) return;
-    addChartToDashboard(dashboardId, chartToAdd);
-    setShowDashboardModal(false);
-    setChartToAdd(null);
-    setXAxisColumn(null);
-    setYAxisColumns([]);
-    setGroupByColumn(null);
-    setChartData([]);
-    setGeneratedQuery("");
-    setActiveView("graph");
-    setError(null);
-    setSuccessMessage(`Added successfully to ${dashboardName}`);
-    setTimeout(() => setSuccessMessage(null), 3000);
-  };
-  // ─────── Render ──────────────────────────────────────────────────────────────
+  // ───── Render ─────
   if (!tableName) {
     return (
       <div className="bg-gradient-to-br from-white to-blue-50 rounded-xl shadow-sm border border-slate-200 p-8">
@@ -486,7 +455,7 @@ const DynamicChartBuilder: React.FC<DynamicChartBuilderProps> = ({
           groupByColumn={effectiveGroupByColumn}
         />
 
-        {/* Download */}
+        {/* Downloads */}
         {chartData.length > 0 && (
           <div className="flex items-center space-x-2 ml-auto mb-2">
             {activeView === "graph" && (
@@ -509,17 +478,40 @@ const DynamicChartBuilder: React.FC<DynamicChartBuilderProps> = ({
             )}
           </div>
         )}
+
         {/* Success message */}
         {successMessage && (
           <div className="mb-2 px-4 py-2 bg-green-100 text-green-800 rounded">
             {successMessage}
           </div>
         )}
-        {/* Add to Dashboard Button */}
+
+        {/* Add to Dashboard */}
         {activeView === "graph" && chartData.length > 0 && (
           <div className="flex justify-end mb-2">
             <button
-              onClick={handleAddToDashboard}
+              onClick={() => {
+                addChart({
+                  id: uuidv4(),
+                  chartType,
+                  chartData,
+                  xAxisColumn,
+                  yAxisColumns,
+                  groupByColumn: effectiveGroupByColumn,
+                  uniqueGroupKeys,
+                  aggregationType,
+                  stacked,
+                });
+                setXAxisColumn(null);
+                setYAxisColumns([]);
+                setGroupByColumn(null);
+                setChartData([]);
+                setGeneratedQuery("");
+                setActiveView("graph");
+                setError(null);
+                setSuccessMessage("Added successfully to dashboard");
+                setTimeout(() => setSuccessMessage(null), 3000);
+              }}
               className="flex items-center space-x-2 px-4 py-2 bg-blue-500 text-white rounded-lg shadow"
             >
               <span>Add to Dashboard</span>
@@ -530,7 +522,6 @@ const DynamicChartBuilder: React.FC<DynamicChartBuilderProps> = ({
         {/* Views */}
         {activeView === "graph" && (
           <ChartDisplay
-            chartContainerRef={chartContainerRef}
             chartType={chartType}
             chartData={chartData}
             xAxisColumn={xAxisColumn}
@@ -541,6 +532,7 @@ const DynamicChartBuilder: React.FC<DynamicChartBuilderProps> = ({
             loading={loading}
             error={error}
             stacked={stacked}
+            chartContainerRef={chartContainerRef}
           />
         )}
         {activeView === "table" && (
@@ -561,53 +553,6 @@ const DynamicChartBuilder: React.FC<DynamicChartBuilderProps> = ({
           </div>
         )}
       </div>
-
-      {/* Dashboard Selection Modal */}
-      {showDashboardModal && (
-        <div className="fixed inset-0 flex items-center justify-center bg-black bg-opacity-50 z-50">
-          <div className="bg-white p-6 rounded-lg shadow-lg">
-            <h2 className="text-lg font-medium mb-4">Choose Dashboard</h2>
-            <div className="space-y-2 mb-4">
-              {dashboards.length > 0 ? (
-                dashboards.map((d) => (
-                  <button
-                    key={d.id}
-                    onClick={() => handleAddToExisting(d.id, d.name)}
-                    className="w-full text-left px-4 py-2 bg-gray-100 rounded hover:bg-gray-200"
-                  >
-                    {d.name}
-                  </button>
-                ))
-              ) : (
-                <div className="text-center text-slate-500 py-4">
-                  No dashboards exist. Please create one below.
-                </div>
-              )}
-            </div>
-            <div className="flex items-center space-x-2 mb-4">
-              <input
-                type="text"
-                placeholder="New dashboard name"
-                value={newDashboardName}
-                onChange={(e) => setNewDashboardName(e.target.value)}
-                className="flex-1 border p-2 rounded"
-              />
-              <button
-                onClick={handleCreateAndAdd}
-                className="bg-green-500 text-white p-2 rounded"
-              >
-                Create and Add
-              </button>
-            </div>
-            <button
-              onClick={() => setShowDashboardModal(false)}
-              className="w-full px-4 py-2 bg-red-500 text-white rounded"
-            >
-              Cancel
-            </button>
-          </div>
-        </div>
-      )}
     </div>
   );
 };

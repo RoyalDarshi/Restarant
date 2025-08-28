@@ -36,25 +36,26 @@ export interface DatabaseTableSchema {
   columns: DatabaseColumn[];
 }
 
-// New interface for columns in aggregation request to include their table name
 export interface AggregationColumn {
   key: string;
   tableName: string;
 }
 
+// ✅ UPDATED: Multiple secondary tables + joinColumns map
 export interface AggregationRequest {
-  tableName: string; // Primary table name
-  xAxis: AggregationColumn; // Now includes tableName
-  yAxes: AggregationColumn[]; // Now includes tableName
-  groupBy?: AggregationColumn; // Now includes tableName
+  tableName: string; // Primary table
+  xAxis: AggregationColumn;
+  yAxes: AggregationColumn[];
+  groupBy?: AggregationColumn;
   aggregationTypes: Array<"SUM" | "AVG" | "COUNT" | "MIN" | "MAX">;
   filters?: Array<{
+    tableName?: string; // ✅ allow specifying which table filter applies to
     column: string;
     operator: string;
     value: any;
   }>;
-  secondaryTableName?: string;
-  joinColumn?: string;
+  secondaryTableNames?: string[]; // ✅ multiple instead of one
+  joinColumns?: Record<string, string>; // ✅ { tableName: joinColumn }
 }
 
 class ApiService {
